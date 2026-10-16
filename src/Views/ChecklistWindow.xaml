@@ -1,0 +1,50 @@
+<Window x:Class="RafaelElectrical.Views.ChecklistWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Height="560" Width="560" MinHeight="360" MinWidth="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock x:Name="InstructionText" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <Grid x:Name="ComboRow" Visibility="Collapsed" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="ComboLabel" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox x:Name="Combo" Grid.Column="1" DisplayMemberPath="Label"/>
+            </Grid>
+            <Grid x:Name="TextRow" Visibility="Collapsed" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TextLabel" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="InputBox" Grid.Column="1"/>
+            </Grid>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <CheckBox x:Name="Option1" Visibility="Collapsed" Margin="0,0,0,4"/>
+            <CheckBox x:Name="Option2" Visibility="Collapsed" Margin="0,0,0,4"/>
+            <DockPanel Margin="0,6,0,0">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button Content="Marcar todos" Padding="8,3" Margin="0,0,6,0" Click="CheckAll_Click"/>
+                    <Button Content="Desmarcar" Padding="8,3" Click="UncheckAll_Click"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="OkButton" Content="OK" Padding="16,4" Margin="0,0,6,0" IsDefault="True" Click="Ok_Click"/>
+                    <Button Content="Cancelar" Padding="10,4" IsCancel="True"/>
+                </StackPanel>
+            </DockPanel>
+        </StackPanel>
+
+        <ListBox x:Name="ItemList">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,1"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+</Window>

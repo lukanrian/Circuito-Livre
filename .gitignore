@@ -1,0 +1,18 @@
+# Saídas de compilação
+build/
+dist/
+bin/
+obj/
+*.zip
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# Revit (arquivos de teste e backups)
+*.rvt
+*.rfa
+*.0001.*
+*.log

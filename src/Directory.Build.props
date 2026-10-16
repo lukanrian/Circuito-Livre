@@ -1,0 +1,9 @@
+<Project>
+  <!-- Versão do Revit alvo. Passe -p:RevitVersion=2026 (ou 2027) no dotnet build. -->
+  <PropertyGroup>
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2025</RevitVersion>
+    <!-- obj e bin FORA da pasta src, separados por versão, para uma versão não enxergar os arquivos gerados da outra -->
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)..\build\obj\$(RevitVersion)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)..\build\bin\</BaseOutputPath>
+  </PropertyGroup>
+</Project>

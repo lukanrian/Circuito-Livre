@@ -1,0 +1,32 @@
+<Window x:Class="RafaelElectrical.Views.IdentifyWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Preencher identificação — RafaelElectrical"
+        SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="14" Width="460">
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="Preenche os parâmetros RE_Identificação e RE_Nível nos circuitos (força e telecom) e nos dispositivos ligados a eles."/>
+
+        <TextBlock Text="Padrão da identificação:"/>
+        <TextBox x:Name="PatternBox" Text="{}{QUADRO}-{CIRCUITO2}" Margin="0,4,0,0" TextChanged="PatternBox_TextChanged"/>
+        <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11"
+                   Text="Campos: {QUADRO}  {CIRCUITO}  {CIRCUITO2} (2 dígitos)  {CIRCUITO3} (3 dígitos)  {DESCRICAO}  {NIVEL}"/>
+        <TextBlock x:Name="PreviewText" Margin="0,6,0,0" FontWeight="SemiBold"/>
+
+        <GroupBox Header="Quadros" Padding="8" Margin="0,10,0,0">
+            <StackPanel>
+                <RadioButton x:Name="SelectRadio" Content="Os quadros que eu selecionar" IsChecked="True" Margin="0,2"/>
+                <RadioButton x:Name="AllRadio" Content="Todos os quadros do projeto" Margin="0,2"/>
+            </StackPanel>
+        </GroupBox>
+
+        <CheckBox x:Name="DevicesCheck" Content="Preencher também os dispositivos" IsChecked="True" Margin="0,10,0,0"/>
+        <CheckBox x:Name="LevelCheck" Content="Preencher o nível (RE_Nível)" IsChecked="True" Margin="0,4,0,0"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Preencher" Padding="14,4" Margin="0,0,6,0" IsDefault="True" Click="Ok_Click"/>
+            <Button Content="Cancelar" Padding="10,4" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

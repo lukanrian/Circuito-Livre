@@ -1,0 +1,92 @@
+﻿<Window x:Class="RafaelElectrical.Views.DimensionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Dimensionar instalação (NBR 5410) — RafaelElectrical"
+        Height="680" Width="1250" MinHeight="420" MinWidth="900"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel Margin="10">
+
+        <GroupBox DockPanel.Dock="Top" Header="Critérios" Padding="8">
+            <WrapPanel>
+                <StackPanel Margin="0,0,16,6">
+                    <TextBlock Text="Método de instalação"/>
+                    <ComboBox x:Name="MethodCombo" Width="260">
+                        <ComboBoxItem Content="A1 — eletroduto embutido em parede isolante" Tag="A1"/>
+                        <ComboBoxItem Content="A2 — cabo multipolar em eletroduto em parede isolante" Tag="A2"/>
+                        <ComboBoxItem Content="B1 — eletroduto embutido em alvenaria / aparente" Tag="B1"/>
+                        <ComboBoxItem Content="B2 — cabo multipolar em eletroduto" Tag="B2"/>
+                        <ComboBoxItem Content="C — cabo fixado diretamente em parede" Tag="C"/>
+                        <ComboBoxItem Content="D — eletroduto enterrado" Tag="D"/>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Margin="0,0,16,6">
+                    <TextBlock Text="Isolação (cobre)"/>
+                    <ComboBox x:Name="InsulationCombo" Width="150">
+                        <ComboBoxItem Content="PVC 70 °C" Tag="PVC70"/>
+                        <ComboBoxItem Content="EPR/XLPE 90 °C" Tag="EPR90"/>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Margin="0,0,16,6">
+                    <TextBlock Text="Temperatura (°C)"/>
+                    <TextBox x:Name="TempBox" Width="70"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,16,6">
+                    <TextBlock Text="Circuitos agrupados"/>
+                    <TextBox x:Name="GroupedBox" Width="70" ToolTip="Nº de circuitos no trecho mais carregado (Tabela 42)"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,16,6">
+                    <TextBlock Text="Queda máx. (%)"/>
+                    <TextBox x:Name="DropBox" Width="70"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,16,6">
+                    <TextBlock Text="Resistividade (Ω·mm²/m)"/>
+                    <TextBox x:Name="RhoBox" Width="90"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,16,6">
+                    <TextBlock Text="Seção mín. ilum. / força (mm²)"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox x:Name="MinLightBox" Width="50"/>
+                        <TextBlock Text=" / " VerticalAlignment="Center"/>
+                        <TextBox x:Name="MinPowerBox" Width="50"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Margin="0,0,16,6" VerticalAlignment="Bottom">
+                    <CheckBox x:Name="RatingCheck" Content="Atualizar o disjuntor (Rating) do Revit"/>
+                </StackPanel>
+                <Button Content="Calcular" Padding="16,4" VerticalAlignment="Bottom" Margin="0,0,0,6" Click="Calculate_Click"/>
+            </WrapPanel>
+        </GroupBox>
+
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Exportar CSV..." Padding="12,4" Margin="0,0,8,0" Click="Export_Click"/>
+                <Button Content="Aplicar no modelo" Padding="14,4" Margin="0,0,8,0" FontWeight="SemiBold" Click="Apply_Click"/>
+                <Button Content="Fechar" Padding="12,4" IsCancel="True"/>
+            </StackPanel>
+            <TextBlock x:Name="SummaryText" VerticalAlignment="Center" TextWrapping="Wrap"/>
+        </DockPanel>
+
+        <DataGrid x:Name="ResultGrid" Margin="0,8,0,0" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Quadro" Binding="{Binding Panel}"/>
+                <DataGridTextColumn Header="Circuito" Binding="{Binding Number}"/>
+                <DataGridTextColumn Header="Descrição" Binding="{Binding LoadName}" Width="*"/>
+                <DataGridTextColumn Header="V" Binding="{Binding VoltageV, StringFormat=N0}"/>
+                <DataGridTextColumn Header="Polos" Binding="{Binding Poles}"/>
+                <DataGridTextColumn Header="Ib (A)" Binding="{Binding CurrentA, StringFormat=N2}"/>
+                <DataGridTextColumn Header="L (m)" Binding="{Binding LengthM, StringFormat=N1}"/>
+                <DataGridTextColumn Header="Origem L" Binding="{Binding LengthSource}"/>
+                <DataGridTextColumn Header="Agrupa" Binding="{Binding Grouping}"/>
+                <DataGridTextColumn Header="Seção (mm²)" Binding="{Binding SectionText}"/>
+                <DataGridTextColumn Header="Disj. (A)" Binding="{Binding BreakerA}"/>
+                <DataGridTextColumn Header="Iz (A)" Binding="{Binding IzA, StringFormat=N1}"/>
+                <DataGridTextColumn Header="ΔV (%)" Binding="{Binding VoltageDropPercent, StringFormat=N2}"/>
+                <DataGridTextColumn Header="ΔV total (%)" Binding="{Binding TotalDropPercent, StringFormat=N2}"/>
+                <DataGridTextColumn Header="Critério" Binding="{Binding Criterion}"/>
+                <DataGridTextColumn Header="Fiação" Binding="{Binding Wiring}" Width="*"/>
+                <DataGridTextColumn Header="Situação" Binding="{Binding Status}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

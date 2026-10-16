@@ -1,0 +1,52 @@
+<Window x:Class="RafaelElectrical.Views.MemorialWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Memorial descritivo e de cálculo — RafaelElectrical"
+        Height="600" Width="680" MinHeight="460" MinWidth="560"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Window.Resources>
+        <DataTemplate x:Key="CheckTemplate">
+            <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,1"/>
+        </DataTemplate>
+    </Window.Resources>
+    <DockPanel Margin="10">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Gerar memorial (.docx)" Padding="14,4" Margin="0,0,6,0" IsDefault="True" Click="Ok_Click"/>
+            <Button Content="Cancelar" Padding="10,4" IsCancel="True"/>
+        </StackPanel>
+
+        <TabControl>
+            <TabItem Header="Dados da obra">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid x:Name="FieldsGrid" Margin="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Níveis">
+                <ListBox x:Name="LevelsList" ItemTemplate="{StaticResource CheckTemplate}" Margin="6"/>
+            </TabItem>
+            <TabItem Header="Quadros">
+                <ListBox x:Name="PanelsList" ItemTemplate="{StaticResource CheckTemplate}" Margin="6"/>
+            </TabItem>
+            <TabItem Header="Normas">
+                <ListBox x:Name="NormsList" ItemTemplate="{StaticResource CheckTemplate}" Margin="6"/>
+            </TabItem>
+            <TabItem Header="Materiais">
+                <ListBox x:Name="MaterialsList" ItemTemplate="{StaticResource CheckTemplate}" Margin="6"/>
+            </TabItem>
+            <TabItem Header="Opções">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Memorial de cálculo dos quadros:" FontWeight="SemiBold"/>
+                    <RadioButton x:Name="SummaryRadio" Content="Resumido (tabela-resumo por quadro)" IsChecked="True" Margin="0,4"/>
+                    <RadioButton x:Name="DetailedRadio" Content="Detalhado (tabela-resumo + todos os circuitos)" Margin="0,4"/>
+                    <CheckBox x:Name="PerformanceCheck" Content="Incluir capítulo Norma de Desempenho (NBR 15575)" Margin="0,12,0,4"/>
+                    <CheckBox x:Name="ConditionsCheck" Content="Incluir capítulo Condições de construção, montagem, operação e manutenção" IsChecked="True" Margin="0,4"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>
