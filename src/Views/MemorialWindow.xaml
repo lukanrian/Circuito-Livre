@@ -6,7 +6,7 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Window.Resources>
         <DataTemplate x:Key="CheckTemplate">
-            <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,1"/>
+            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,1"><TextBlock Text="{Binding Label}"/></CheckBox>
         </DataTemplate>
     </Window.Resources>
     <DockPanel Margin="10">

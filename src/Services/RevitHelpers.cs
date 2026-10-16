@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -10,6 +10,19 @@ namespace RafaelElectrical.Services
     /// <summary>Utilitários comuns aos comandos.</summary>
     public static class RevitHelpers
     {
+        /// <summary>Versão exibida do plugin (ex.: "0.1.0-beta").</summary>
+        public static string PluginVersion
+        {
+            get
+            {
+                var asm = System.Reflection.Assembly.GetExecutingAssembly();
+                string info = (System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(asm))?.InformationalVersion;
+                if (string.IsNullOrEmpty(info)) return asm.GetName().Version?.ToString() ?? "?";
+                int plus = info.IndexOf('+');
+                return plus > 0 ? info.Substring(0, plus) : info;
+            }
+        }
+
         public static double M(double meters) => UnitUtils.ConvertToInternalUnits(meters, UnitTypeId.Meters);
         public static double ToM(double feet) => UnitUtils.ConvertFromInternalUnits(feet, UnitTypeId.Meters);
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -24,7 +24,7 @@ namespace RafaelElectrical.Views
 
         public SettingsWindow(DimensioningSettings settings)
         {
-            Title = "RafaelElectrical — Configurações";
+            Title = $"RafaelElectrical {RevitHelpers.PluginVersion} — Configurações";
             Width = 760;
             Height = 600;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;

@@ -20,7 +20,7 @@ namespace RafaelElectrical
             catch (Autodesk.Revit.Exceptions.ArgumentException) { /* aba já existe */ }
 
             // Configuração
-            RibbonPanel config = application.CreateRibbonPanel(TabName, "Configuração");
+            RibbonPanel config = application.CreateRibbonPanel(TabName, "Configuração (beta)");
             AddButton(config, "RE_Settings", "Configurações", typeof(SettingsCommand), "settings",
                 "Temperatura, seções mínima/máxima, cores dos cabos, fatores de agrupamento, taxas de ocupação, método do disjuntor, " +
                 "queda de tensão total, cabos de telecom, DPS no diagrama e exportar/importar (.json).");
@@ -97,6 +97,8 @@ namespace RafaelElectrical
             RibbonPanel tools = application.CreateRibbonPanel(TabName, "Ferramentas");
             AddButton(tools, "RE_InspectParameters", "Inspecionar\nParâmetros", typeof(ParameterInspectorCommand), "inspect",
                 "Lista os parâmetros dos elementos elétricos do modelo (inclusive os criados por outros plugins) e exporta para CSV.");
+            AddButton(tools, "RE_ReportBug", "Reportar\nErro", typeof(ReportBugCommand), "bug",
+                "Abre o GitHub com um formulário já preenchido (versões do Revit e do plugin) para reportar um erro ou sugerir uma função.");
 
             return Result.Succeeded;
         }

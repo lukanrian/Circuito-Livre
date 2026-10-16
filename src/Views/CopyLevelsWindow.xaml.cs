@@ -70,12 +70,22 @@ namespace RafaelElectrical.Views
         private bool _loaded;
 
         public List<LevelRow> SelectedRows => _rows.Where(r => r.IsSelected && !string.IsNullOrWhiteSpace(r.TargetName)).ToList();
-        public bool CreatePlans => CreatePlansCheck.IsChecked == true;
+        public List<CheckItem> ViewModels { get; }
+        public List<object> SelectedViewModels => ViewModels.Where(v => v.IsChecked).Select(v => v.Tag).ToList();
         public bool UpdateExisting => UpdateExistingCheck.IsChecked == true;
+        public bool ViewsOnAllLevels => AllLevelsCheck.IsChecked == true;
+        public bool ReplaceExisting => ReplaceCheck.IsChecked == true;
+        public List<LevelRow> AllRows => _rows.Where(r => !string.IsNullOrWhiteSpace(r.TargetName)).ToList();
 
-        public CopyLevelsWindow(List<LevelSource> sources, List<ExistingLevel> existing)
+        public CopyLevelsWindow(List<LevelSource> sources, List<ExistingLevel> existing, List<CheckItem> viewModels)
         {
             InitializeComponent();
+            // ocupa a maior parte da tela (sem passar dela)
+            Rect area = SystemParameters.WorkArea;
+            Width = Math.Min(Width, area.Width * 0.92);
+            Height = Math.Min(Height, area.Height * 0.92);
+            ViewModels = viewModels;
+            ViewModelsList.ItemsSource = viewModels;
             Language = XmlLanguage.GetLanguage("pt-BR");
             _existing = existing;
 
@@ -92,6 +102,8 @@ namespace RafaelElectrical.Views
 
         private void Options_Changed(object sender, TextChangedEventArgs e) => Rebuild();
 
+        private void Replace_Changed(object sender, RoutedEventArgs e) => Rebuild();
+
         private void Rebuild()
         {
             if (!_loaded) return;
@@ -103,6 +115,10 @@ namespace RafaelElectrical.Views
 
             string prefix = PrefixBox.Text ?? "";
             double offset = ParseOffset();
+            bool replace = ReplaceCheck.IsChecked == true;
+            var targetNames = new HashSet<string>(source.Levels.Select(l => prefix + l.Name), StringComparer.CurrentCultureIgnoreCase);
+            // na substituição, só contam os níveis existentes que serão mantidos (mesmo nome de um nível da origem)
+            List<ExistingLevel> existing = replace ? _existing.Where(x => targetNames.Contains(x.Name)).ToList() : _existing;
 
             _rows = source.Levels.Select(l =>
             {
@@ -110,8 +126,8 @@ namespace RafaelElectrical.Views
                 string target = prefix + l.Name;
                 var row = new LevelRow { SourceName = l.Name, ElevationM = elevation, TargetName = target };
 
-                ExistingLevel sameName = _existing.FirstOrDefault(x => string.Equals(x.Name, target, StringComparison.CurrentCultureIgnoreCase));
-                ExistingLevel sameElevation = _existing.FirstOrDefault(x => Math.Abs(x.ElevationM - elevation) < ToleranceM);
+                ExistingLevel sameName = existing.FirstOrDefault(x => string.Equals(x.Name, target, StringComparison.CurrentCultureIgnoreCase));
+                ExistingLevel sameElevation = existing.FirstOrDefault(x => Math.Abs(x.ElevationM - elevation) < ToleranceM);
 
                 if (sameName != null && Math.Abs(sameName.ElevationM - elevation) < ToleranceM)
                 {
@@ -138,7 +154,8 @@ namespace RafaelElectrical.Views
 
             LevelsGrid.ItemsSource = _rows;
             int news = _rows.Count(r => r.Status == "Novo");
-            InfoText.Text = $"{_rows.Count} nível(is) na origem — {news} novo(s). Marque os que deseja criar e, se quiser, edite os nomes.";
+            int removed = replace ? _existing.Count(x => !targetNames.Contains(x.Name)) : 0;
+            InfoText.Text = (replace ? $"Substituição: {removed} nível(is) existente(s) serão apagados. " : "") + $"{_rows.Count} nível(is) na origem — {news} novo(s). Marque os que deseja criar (ou que já existem e devem receber vistas) e, se quiser, edite os nomes.";
         }
 
         private double ParseOffset()
@@ -186,6 +203,10 @@ namespace RafaelElectrical.Views
         private void CheckAll_Click(object sender, RoutedEventArgs e) => _rows.ForEach(r => r.IsSelected = true);
 
         private void UncheckAll_Click(object sender, RoutedEventArgs e) => _rows.ForEach(r => r.IsSelected = false);
+
+        private void CheckViews_Click(object sender, RoutedEventArgs e) => ViewModels.ForEach(v => v.IsChecked = true);
+
+        private void UncheckViews_Click(object sender, RoutedEventArgs e) => ViewModels.ForEach(v => v.IsChecked = false);
 
         private void Ok_Click(object sender, RoutedEventArgs e)
         {

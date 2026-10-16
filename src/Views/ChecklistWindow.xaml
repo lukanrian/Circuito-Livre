@@ -42,7 +42,7 @@
         <ListBox x:Name="ItemList">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,1"/>
+                    <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,1"><TextBlock Text="{Binding Label}"/></CheckBox>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

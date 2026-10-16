@@ -9,20 +9,20 @@ com dimensionamento pela **ABNT NBR 5410**. Feito em C# (.NET 8 / .NET 10, WPF),
 > o projeto e emite a ART/RRT. As tabelas da NBR 5410 foram digitadas a partir da norma e precisam ser conferidas com
 > a edição vigente. O software é distribuído **sem nenhuma garantia** (veja a [licença](LICENSE)).
 
-> 🚧 **Em desenvolvimento.** Várias funções ainda não foram testadas em projeto real. Relate o que encontrar nas [issues](../../issues).
+> 🚧 **Versão 0.1.0 beta — em desenvolvimento.** Várias funções ainda não foram testadas em projeto real. Relate o que encontrar nas [issues](../../issues).
 
 ## Funções
 
 | Painel | Comandos |
 |---|---|
 | **Configuração** | Configurações: temperatura, seções mínima/máxima, cores dos cabos, fatores de agrupamento (Tabela 42) por tipo de infraestrutura, taxas de ocupação, método do disjuntor, queda de tensão total 5%/7%, neutro reduzido, cabos de telecom, DPS no unifilar, exportar/importar `.json` |
-| **Coordenação** | Copiar Níveis (de vínculo RVT/IFC ou de arquivo `.ifc`); Vínculos: nomear, copiar entre pavimentos, configurar vistas vinculadas |
+| **Coordenação** | Copiar Níveis (de vínculo RVT/IFC ou de arquivo `.ifc`), criando para cada nível as vistas escolhidas como modelo (mesma pasta do navegador, modelo de vista e faixa de vista); Vínculos: nomear, copiar entre pavimentos, configurar vistas vinculadas |
 | **Lançamento** | Lançar Pontos (luminárias, tomadas, interruptores, telecom) com altura e potência; Copiar / Copiar para Níveis / Rotacionar / Espelhar levando os circuitos |
 | **Circuitos** | Criar Circuitos (força e telecom), Renumerar (várias ordens), Balancear Fases (A/B/C, com prévia antes/depois), Retornos de interruptores (letras a, b, c… em `RE_Retorno`), Preencher Identificação, Relatório de Cargas |
 | **Dimensionamento** | Dimensionar Instalação (NBR 5410: Ib ≤ In ≤ Iz, FCT, FCA, seção mínima, queda de tensão parcial e total), Centro de Cargas, Desconsiderar Agrupamento |
 | **Infraestrutura** | Construir eletrodutos/eletrocalhas, Atualizar Quadros (roteamento pela infraestrutura: comprimento e agrupamento reais), Dimensionar Infraestrutura (taxa de ocupação + vista 3D colorida), Adicionar Suportes |
 | **Documentação** | Criar Identificadores, Diagrama Unifilar, Relatório de Fiação (CSV), Tabelas de Fiação, Memorial Descritivo e de Cálculo (`.docx`), Compor Pranchas |
-| **Ferramentas** | Inspecionar Parâmetros |
+| **Ferramentas** | Inspecionar Parâmetros, Reportar Erro (abre uma issue já preenchida com as versões do Revit e do plugin) |
 
 O plugin grava seus resultados em parâmetros compartilhados próprios, com prefixo `RE_`
 (ex.: `RE_Seção (mm²)`, `RE_Disjuntor (A)`, `RE_Queda total (%)`, `RE_Fiação`).

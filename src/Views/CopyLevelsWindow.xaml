@@ -1,12 +1,22 @@
-<Window x:Class="RafaelElectrical.Views.CopyLevelsWindow"
+﻿<Window x:Class="RafaelElectrical.Views.CopyLevelsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Copiar níveis — RafaelElectrical"
-        Height="600" Width="820" MinHeight="380" MinWidth="620"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-    <DockPanel Margin="10">
+        Height="860" Width="1180" MinHeight="560" MinWidth="760"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResize">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="140"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="6"/>
+            <RowDefinition Height="*" MinHeight="160"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+        <!-- Origem -->
+        <Grid Grid.Row="0" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -33,23 +43,8 @@
                      ToolTip="Soma este valor a todas as elevações (útil quando o IFC está em outra referência de cota)"/>
         </Grid>
 
-        <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-            <StackPanel DockPanel.Dock="Left">
-                <CheckBox x:Name="CreatePlansCheck" Content="Criar planta de piso para cada nível novo" IsChecked="True"/>
-                <CheckBox x:Name="UpdateExistingCheck" Margin="0,4,0,0"
-                          Content="Ajustar a elevação de níveis que já existem com o mesmo nome"/>
-            </StackPanel>
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Right">
-                <Button Content="Marcar todos" Padding="10,4" Margin="0,0,6,0" Click="CheckAll_Click"/>
-                <Button Content="Desmarcar todos" Padding="10,4" Margin="0,0,12,0" Click="UncheckAll_Click"/>
-                <Button Content="Criar níveis" Padding="14,4" Margin="0,0,6,0" IsDefault="True" Click="Ok_Click"/>
-                <Button Content="Cancelar" Padding="10,4" IsCancel="True"/>
-            </StackPanel>
-        </DockPanel>
-
-        <TextBlock x:Name="InfoText" DockPanel.Dock="Bottom" Margin="0,6,0,0" Foreground="Gray"/>
-
-        <DataGrid x:Name="LevelsGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+        <!-- Níveis -->
+        <DataGrid x:Name="LevelsGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                   HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Extended">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="Criar" Width="50">
@@ -66,5 +61,49 @@
                 <DataGridTextColumn Header="Situação" Binding="{Binding Status}" IsReadOnly="True" Width="1.3*"/>
             </DataGrid.Columns>
         </DataGrid>
-    </DockPanel>
+
+        <TextBlock x:Name="InfoText" Grid.Row="2" Margin="0,4,0,0" Foreground="Gray" TextWrapping="Wrap"/>
+
+        <GridSplitter Grid.Row="3" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                      Background="Transparent" ResizeDirection="Rows" ToolTip="Arraste para dividir o espaço entre níveis e vistas"/>
+
+        <!-- Vistas modelo -->
+        <GroupBox Grid.Row="4" Header="Vistas a criar para cada nível">
+            <DockPanel Margin="4">
+                <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="Gray" Margin="0,0,0,4"
+                           Text="Marque as vistas que servem de modelo. Para cada nível o plugin cria uma vista igual (tipo, modelo de vista, escala, faixa de vista e pasta do navegador), trocando o pavimento no nome."/>
+                <DockPanel DockPanel.Dock="Bottom" Margin="0,6,0,0" LastChildFill="False">
+                    <CheckBox x:Name="AllLevelsCheck" DockPanel.Dock="Left" VerticalAlignment="Center"
+                              Content="Criar as vistas em TODOS os níveis do projeto (não só nos marcados acima)"/>
+                    <Button DockPanel.Dock="Right" Content="Desmarcar todas as vistas" Padding="10,3" Click="UncheckViews_Click"/>
+                    <Button DockPanel.Dock="Right" Content="Marcar todas as vistas" Padding="10,3" Margin="0,0,6,0" Click="CheckViews_Click"/>
+                </DockPanel>
+                <ListBox x:Name="ViewModelsList" ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,1">
+                                <TextBlock Text="{Binding Label}"/>
+                            </CheckBox>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </GroupBox>
+
+        <!-- Opções -->
+        <StackPanel Grid.Row="5" Margin="0,8,0,0">
+            <CheckBox x:Name="UpdateExistingCheck"
+                      Content="Ajustar a elevação de níveis que já existem com o mesmo nome"/>
+            <CheckBox x:Name="ReplaceCheck" Margin="0,4,0,0" Foreground="DarkRed" Checked="Replace_Changed" Unchecked="Replace_Changed"
+                      Content="Apagar os níveis existentes que não estão na origem e substituir pelos novos (pede confirmação)"/>
+        </StackPanel>
+
+        <!-- Botões -->
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Marcar todos os níveis" Padding="10,4" Margin="0,0,6,0" Click="CheckAll_Click"/>
+            <Button Content="Desmarcar todos os níveis" Padding="10,4" Margin="0,0,12,0" Click="UncheckAll_Click"/>
+            <Button Content="Criar níveis" Padding="14,4" Margin="0,0,6,0" IsDefault="True" Click="Ok_Click"/>
+            <Button Content="Cancelar" Padding="10,4" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
 </Window>
