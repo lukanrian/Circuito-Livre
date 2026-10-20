@@ -167,7 +167,9 @@ namespace RafaelElectrical.Services
                 else if (omitText != null && wiring.Contains(omitText) && wiring.IndexOf('#') == wiring.LastIndexOf('#'))
                     wiring = SectionRegex.Replace(wiring, "");
                 string label = $"{c.PanelName}-{c.CircuitNumber}";
-                lines.Add(string.IsNullOrWhiteSpace(wiring) ? label : $"{label}: {wiring.Trim()}");
+                string line = string.IsNullOrWhiteSpace(wiring) ? label : $"{label}: {wiring.Trim()}";
+                lines.Add(_cfg.SpaceTagsWithoutGround && !wiring.Contains("PE", StringComparison.OrdinalIgnoreCase)
+                    ? line + "\r" : line);
             }
             if (maxPe > 0) lines.Add($"PE #{Nbr5410.FormatSection(maxPe)} mm² (único)");
             return string.Join("\r", lines);

@@ -6,6 +6,53 @@ CircuitInput Circuit(string panel = "Origem") => new() { Panel = panel, VoltageV
 var settings = new DimensioningSettings();
 var baseline = CircuitSizer.Size(Circuit(), settings);
 Check(baseline.Ok && baseline.SectionMm2 == 10 && Math.Abs(baseline.VoltageDropPercent - 2.812148) < .00001, "baseline físico preservado");
+var customCable = new DimensioningSettings();
+customCable.CableSections.First(r => r.Phase == 10).Ground = 6;
+var customResult = CircuitSizer.Size(Circuit(), customCable);
+Check(customResult.Ok && customResult.SectionMm2 == 10 && customResult.ProtectionMm2 == 6,
+    "tabela personalizada aplica seção de proteção");
+Check(Math.Abs(DimensioningSettings.FromJson(customCable.ToJson()).CableDiameter(2.5) - 3.5) < 1e-9,
+    "diâmetro do cabo persiste na configuração");
+customCable.CableSections.First(r => r.Phase == 10).Ground = 16;
+Check(DimensioningSettings.FromJson(customCable.ToJson()) == null,
+    "importação rejeita proteção maior que a fase");
+var telecom = new DimensioningSettings();
+telecom.CableData = "UTP_CAT-6";
+telecom.TelecomCableDiameters["UTP_CAT-6"] = 6.4;
+telecom.TelecomCableNames["UTP_CAT-6"] = "Cabo de dados CAT6";
+var telecomLoaded = DimensioningSettings.FromJson(telecom.ToJson());
+Check(telecomLoaded != null && telecomLoaded.TelecomDiameter(telecomLoaded.CableData) == 6.4 &&
+    telecomLoaded.TelecomName(telecomLoaded.CableData) == "Cabo de dados CAT6",
+    "catálogo de telecom preserva nome e diâmetro por cabo");
+var tags = new DimensioningSettings { TagIgnoreConduitDiameterMm = 32, TagIgnoreTrayWidthMm = 100 };
+tags.TagByDeviceType["OST_DataDevices|Tomada : RJ45"] = "Tag Dados : Tipo A";
+tags.TagCenterByDeviceType["OST_DataDevices|Tomada : RJ45"] = true;
+var tagsLoaded = DimensioningSettings.FromJson(tags.ToJson());
+Check(tagsLoaded != null && tagsLoaded.TagIgnoreConduitDiameterMm == 32 &&
+    tagsLoaded.TagIgnoreTrayWidthMm == 100 && tagsLoaded.TagCenterByDeviceType["OST_DataDevices|Tomada : RJ45"] &&
+    tagsLoaded.TagByDeviceType["OST_DataDevices|Tomada : RJ45"] == "Tag Dados : Tipo A",
+    "identificadores por tipo e dimensões ignoradas persistem");
+var conditional = new DimensioningSettings();
+conditional.SizingRules.Add(new SizingRule { Name = "Carga longa", MinimumBreakerA = 32,
+    MinimumSectionMm2 = 16, Conditions = new() { new SizingCondition { Type = "Potência aparente (VA)",
+        Operator = "Maior ou igual a", Value = "1000" } } });
+var qualifying = Circuit(); qualifying.ApparentLoadVA = 1200;
+Check(CircuitSizer.Size(qualifying, conditional).SectionMm2 >= 16 && CircuitSizer.Size(qualifying, conditional).BreakerA >= 32,
+    "regra condicional aplica mínimos quando potência atende");
+Check(CircuitSizer.Size(Circuit(), conditional).SectionMm2 == baseline.SectionMm2,
+    "regra condicional não altera circuito fora do critério");
+conditional.SizingRules[0].Conditions[0].Value = "inválido";
+Check(DimensioningSettings.FromJson(conditional.ToJson()) == null,
+    "importação rejeita condição numérica inválida");
+var documentation = new DimensioningSettings();
+documentation.CircuitDocumentation.Add(new CircuitDocumentationRule { LoadName = "Carga", Poles = 1,
+    CableType = "Unipolar", Insulation = "XLPE", Neutral = true, Ground = true, Curve = "B" });
+var documented = Circuit(); documented.LoadName = "Carga";
+Check(CircuitSizer.Size(documented, documentation).IzA > CircuitSizer.Size(documented, settings).IzA,
+    "isolação por circuito altera capacidade de condução");
+documentation.TagViewByLevel["Térreo"] = "Planta elétrica";
+Check(DimensioningSettings.FromJson(documentation.ToJson()).TagViewByLevel["Térreo"] == "Planta elétrica",
+    "mapeamento de vista persiste no JSON");
 var classSettings = new DimensioningSettings();
 classSettings.CircuitClasses[0].MinimumSectionMm2 = 16;
 classSettings.CircuitClasses[0].MinimumBreakerA = 32;

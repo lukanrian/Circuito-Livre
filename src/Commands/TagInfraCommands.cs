@@ -51,12 +51,14 @@ namespace RafaelElectrical.Commands
             var form = new FormWindow(Title, "Marca na vista ativa só os trechos com tamanho diferente do padrão. " +
                                              "O identificador deve mostrar o diâmetro (eletroduto) ou a largura × altura (eletrocalha).");
             DimensioningSettings cfg = DimensioningSettings.Load();
-            var conduitCombo = form.Combo("Identificador de eletroduto:", conduitTags, c => c.Label, conduitTags.Count > 1 ? 1 : 0);
-            var diameter = form.Number("Diâmetro padrão (mm) — não marcar:", cfg.ConduitDefaultDiameterMm, 0, 500);
+            int Preferred(List<TagChoice> tags, string category) => cfg.TagByCategory.TryGetValue(category, out string label)
+                ? Math.Max(0, tags.FindIndex(x => x.Label == label)) : tags.Count > 1 ? 1 : 0;
+            var conduitCombo = form.Combo("Identificador de eletroduto:", conduitTags, c => c.Label, Preferred(conduitTags, "Eletrodutos"));
+            var diameter = form.Number("Diâmetro padrão (mm) — não marcar:", cfg.TagIgnoreConduitDiameterMm, 0, 500);
             form.Note("Tipos com diâmetro padrão próprio (Configurações → Conduítes) usam o valor de lá.");
-            var trayCombo = form.Combo("Identificador de eletrocalha:", trayTags, c => c.Label, trayTags.Count > 1 ? 1 : 0);
-            var width = form.Number("Largura padrão (mm):", cfg.TrayDefaultWidthMm, 0, 2000);
-            var height = form.Number("Altura padrão (mm):", cfg.TrayDefaultHeightMm, 0, 1000);
+            var trayCombo = form.Combo("Identificador de eletrocalha:", trayTags, c => c.Label, Preferred(trayTags, "Eletrocalhas"));
+            var width = form.Number("Largura padrão (mm):", cfg.TagIgnoreTrayWidthMm, 0, 2000);
+            var height = form.Number("Altura padrão (mm):", cfg.TagIgnoreTrayHeightMm, 0, 1000);
             RevitHelpers.ShowOwned(form, data);
             if (form.ShowDialog() != true) return Result.Cancelled;
 
@@ -140,8 +142,15 @@ namespace RafaelElectrical.Commands
 
             List<Level> levels = RevitHelpers.Levels(doc);
             Level level = view.GenLevel;
-            double floor = level.ProjectElevation;
-            double above = levels.Where(l => l.ProjectElevation > floor + RevitHelpers.M(0.5)).Select(l => l.ProjectElevation)
+            DimensioningSettings cfg = DimensioningSettings.Load();
+            if (!cfg.ConsiderInfraLevel(level.Name))
+            {
+                TaskDialog.Show(Title, $"O nível {level.Name} está desmarcado em Configurações → Cota do conduíte.");
+                return Result.Cancelled;
+            }
+            double floor = level.ProjectElevation + RevitHelpers.M(cfg.FloorOffset(level.Name));
+            double above = levels.Where(l => cfg.ConsiderInfraLevel(l.Name) && l.ProjectElevation > level.ProjectElevation + RevitHelpers.M(0.5))
+                .Select(l => l.ProjectElevation + RevitHelpers.M(cfg.FloorOffset(l.Name)))
                 .DefaultIfEmpty(floor + RevitHelpers.M(3.0)).Min();
             double tol = RevitHelpers.M(0.30);
 

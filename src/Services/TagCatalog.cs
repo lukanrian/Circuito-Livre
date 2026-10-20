@@ -24,6 +24,18 @@ namespace RafaelElectrical.Services
 
         public static string Label(FamilySymbol s) => $"{s.FamilyName} : {s.Name}";
 
+        public static string DeviceKey(Element e)
+        {
+            var symbol = (e as FamilyInstance)?.Symbol;
+            return symbol == null ? null : $"{e.Category?.BuiltInCategory}|{Label(symbol)}";
+        }
+
+        public static bool Centered(Element e, DimensioningSettings cfg)
+        {
+            string key = DeviceKey(e);
+            return key != null && cfg.TagCenterByDeviceType.TryGetValue(key, out bool centered) && centered;
+        }
+
         /// <summary>Opções de identificador por categoria (inclui os multicategoria).</summary>
         public static Dictionary<string, List<string>> Options(Document doc)
         {
@@ -42,11 +54,16 @@ namespace RafaelElectrical.Services
         public static ElementId Configured(Document doc, Element e, DimensioningSettings cfg)
         {
             BuiltInCategory cat = e.Category?.BuiltInCategory ?? BuiltInCategory.INVALID;
+            string key = DeviceKey(e);
             foreach (var m in Map)
             {
-                if (m.Device != cat || !cfg.TagByCategory.TryGetValue(m.Label, out string label)) continue;
+                if (m.Device != cat) continue;
+                string label = key != null && cfg.TagByDeviceType.TryGetValue(key, out string own)
+                    ? own : cfg.TagByCategory.TryGetValue(m.Label, out string byCategory) ? byCategory : null;
+                if (label == null) continue;
                 return new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
-                    .FirstOrDefault(s => Label(s) == label)?.Id;
+                    .FirstOrDefault(s => Label(s) == label && s.Category != null &&
+                        (s.Category.BuiltInCategory == m.Tag || s.Category.BuiltInCategory == BuiltInCategory.OST_MultiCategoryTags))?.Id;
             }
             return null;
         }

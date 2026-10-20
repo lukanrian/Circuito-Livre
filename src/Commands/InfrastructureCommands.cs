@@ -107,7 +107,8 @@ namespace RafaelElectrical.Commands
     {
         public static void Write(Document doc, RoutingService routing, bool clearUnused = false)
         {
-            double omit = DimensioningSettings.Load().OmitSectionInTags;
+            DimensioningSettings cfg = DimensioningSettings.Load();
+            double omit = cfg.OmitSectionInTags;
             string omitText = omit > 0 ? $" #{Nbr5410.FormatSection(omit)} mm²" : null;
             Dictionary<ElementId, ElectricalSystem> circuits = routing.Routes.ToDictionary(r => r.Circuit.Id, r => r.Circuit);
 
@@ -130,6 +131,19 @@ namespace RafaelElectrical.Commands
                 SharedParameters.SetNumber(seg, SharedParameters.RouteCount, list.Count);
                 SharedParameters.SetText(seg, SharedParameters.RouteCables, string.Join(" | ", list.Select(c =>
                 {
+                    if (c.SystemType != ElectricalSystemType.PowerCircuit)
+                    {
+                        string cable = c.SystemType switch
+                        {
+                            ElectricalSystemType.Data => cfg.CableData,
+                            ElectricalSystemType.Telephone => cfg.CableTelephone,
+                            ElectricalSystemType.Communication => cfg.CableCommunication,
+                            ElectricalSystemType.Security => cfg.CableSecurity,
+                            _ => null
+                        };
+                        if (cable != null) return cfg.TelecomVerboseNomenclature
+                            ? $"{RoutingService.Label(c)}: {cfg.TelecomName(cable)}" : cfg.TelecomName(cable);
+                    }
                     string wiring = SharedParameters.GetText(c, SharedParameters.Wiring);
                     if (string.IsNullOrEmpty(wiring)) return RoutingService.Label(c);
                     if (omitText != null && wiring.EndsWith(omitText) && wiring.IndexOf('#') == wiring.LastIndexOf('#'))
@@ -158,14 +172,6 @@ namespace RafaelElectrical.Commands
     [Transaction(TransactionMode.Manual)]
     public class SizeInfrastructureCommand : IExternalCommand
     {
-        /// <summary>Diâmetro externo aproximado de cabos unipolares 450/750 V PVC (mm) por seção (mm²).</summary>
-        private static readonly Dictionary<double, double> CableDiameterMm = new()
-        {
-            [0.5] = 2.2, [0.75] = 2.4, [1] = 2.6, [1.5] = 3.0, [2.5] = 3.6, [4] = 4.2, [6] = 4.8, [10] = 6.1,
-            [16] = 7.1, [25] = 8.8, [35] = 10.0, [50] = 11.8, [70] = 13.6, [95] = 15.8, [120] = 17.4,
-            [150] = 19.4, [185] = 21.6, [240] = 24.6, [300] = 27.4,
-        };
-
         private enum Status { Ok, Changed, NoSize, NoCables }
 
         public Result Execute(ExternalCommandData data, ref string message, ElementSet elements)
@@ -226,12 +232,24 @@ namespace RafaelElectrical.Commands
                         double pe = SharedParameters.GetNumber(c, SharedParameters.ProtectionSection) ?? phase;
                         int poles = Math.Max(1, c.PolesNumber);
                         bool power = c.SystemType == ElectricalSystemType.PowerCircuit;
-                        if (!power) { cables.Add(settings.TelecomCableDiameterMm); continue; }
+                        if (!power)
+                        {
+                            string cable = c.SystemType switch
+                            {
+                                ElectricalSystemType.Data => settings.CableData,
+                                ElectricalSystemType.Telephone => settings.CableTelephone,
+                                ElectricalSystemType.Communication => settings.CableCommunication,
+                                ElectricalSystemType.Security => settings.CableSecurity,
+                                _ => null
+                            };
+                            cables.Add(settings.TelecomDiameter(cable));
+                            continue;
+                        }
                         double neutral = SharedParameters.GetNumber(c, SharedParameters.NeutralSection) ?? phase;
                         int phases = poles >= 3 ? 3 : poles == 2 ? 2 : 1;
-                        for (int i = 0; i < phases; i++) cables.Add(Diameter(phase));
-                        if (poles != 2) cables.Add(Diameter(neutral));
-                        cables.Add(Diameter(pe));
+                        for (int i = 0; i < phases; i++) cables.Add(settings.CableDiameter(phase));
+                        if (poles != 2) cables.Add(settings.CableDiameter(neutral));
+                        cables.Add(settings.CableDiameter(pe));
                     }
 
                     double area = cables.Sum(d => Math.PI * d * d / 4);
@@ -277,9 +295,6 @@ namespace RafaelElectrical.Commands
                 (sizes.Count == 0 ? "\n\nAtenção: não foi possível ler a tabela de diâmetros de eletroduto do projeto (Configurações elétricas)." : ""));
             return Result.Succeeded;
         }
-
-        private static double Diameter(double section) =>
-            CableDiameterMm.TryGetValue(section, out double d) ? d : 3.6 * Math.Sqrt(section / 2.5);
 
         private static View3D Create3DView(Document doc)
         {

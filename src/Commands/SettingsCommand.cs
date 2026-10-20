@@ -29,7 +29,30 @@ namespace RafaelElectrical.Commands
                 context.ConduitTypes = new FilteredElementCollector(doc).OfClass(typeof(Autodesk.Revit.DB.Electrical.ConduitType))
                     .Select(t => t.Name).Distinct().OrderBy(n => n).ToList();
                 context.LevelNames = RevitHelpers.Levels(doc).Select(l => l.Name).ToList();
+                context.Levels = RevitHelpers.Levels(doc).Select(l => new LevelOption
+                {
+                    Name = l.Name, ElevationM = RevitHelpers.ToM(l.ProjectElevation)
+                }).ToList();
+                context.PlanViewsByLevel = new FilteredElementCollector(doc).OfClass(typeof(ViewPlan)).Cast<ViewPlan>()
+                    .Where(v => !v.IsTemplate && v.GenLevel != null)
+                    .GroupBy(v => v.GenLevel.Name)
+                    .ToDictionary(g => g.Key, g => g.Select(v => v.Name).OrderBy(n => n).ToList());
+                context.CircuitLoadNames = new FilteredElementCollector(doc).OfClass(typeof(Autodesk.Revit.DB.Electrical.ElectricalSystem))
+                    .Cast<Autodesk.Revit.DB.Electrical.ElectricalSystem>()
+                    .Select(c => c.LoadName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).ToList();
                 context.TagOptions = TagCatalog.Options(doc);
+                var symbols = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
+                    .Where(s => s.Category != null).ToList();
+                context.DeviceTags = TagCatalog.Map.Where(m => m.Device != BuiltInCategory.OST_Conduit &&
+                    m.Device != BuiltInCategory.OST_CableTray).SelectMany(m => symbols
+                    .Where(s => s.Category.BuiltInCategory == m.Device)
+                    .Select(s => new TagDeviceOption
+                    {
+                        Category = m.Label,
+                        Family = TagCatalog.Label(s),
+                        Key = $"{m.Device}|{TagCatalog.Label(s)}",
+                        Options = context.TagOptions[m.Label]
+                    })).OrderBy(x => x.Category).ThenBy(x => x.Family).ToList();
             }
             var window = new SettingsWindow(current, projectAvailable ? inProject : (bool?)null, context);
             RevitHelpers.ShowOwned(window, data);

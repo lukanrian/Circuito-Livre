@@ -25,6 +25,78 @@ namespace RafaelElectrical.Services
         public int MinimumBreakerA { get; set; }
     }
 
+    public class CableSectionRule
+    {
+        public double Phase { get; set; }
+        public double Neutral { get; set; }
+        public double Ground { get; set; }
+        public double Return { get; set; }
+    }
+
+    public class CableDiameterRule
+    {
+        public double Section { get; set; }
+        public double DiameterMm { get; set; }
+    }
+
+    public class CircuitDocumentationRule
+    {
+        public string LoadName { get; set; }
+        public int Poles { get; set; }
+        public string CableType { get; set; } = "";
+        public string Insulation { get; set; } = "PVC";
+        public bool Neutral { get; set; }
+        public bool Ground { get; set; }
+        public string Curve { get; set; } = "C";
+    }
+
+    public class SizingCondition
+    {
+        public string Type { get; set; } = "Potência aparente (VA)";
+        public string Operator { get; set; } = "Maior ou igual a";
+        public string Value { get; set; } = "";
+
+        public bool Matches(CircuitInput input)
+        {
+            if (Type == "Descrição da carga" || Type == "Família específica")
+            {
+                string source = Type == "Família específica" ? input.FamilyNames : input.LoadName;
+                bool contains = (source ?? "").IndexOf(Value ?? "", StringComparison.OrdinalIgnoreCase) >= 0;
+                return Operator == "Não contém" ? !contains : contains;
+            }
+            if (!double.TryParse((Value ?? "").Replace(',', '.'), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double threshold)) return false;
+            double actual = Type switch
+            {
+                "Potência aparente (VA)" => input.ApparentLoadVA,
+                "Corrente (A)" => input.CurrentA,
+                "Nº fases" => input.Poles,
+                _ => double.NaN
+            };
+            return double.IsFinite(actual) && (Operator switch
+            {
+                "Igual a" => Math.Abs(actual - threshold) < 1e-9,
+                "Não é igual a" => Math.Abs(actual - threshold) >= 1e-9,
+                "Maior que" => actual > threshold,
+                "Maior ou igual a" => actual >= threshold,
+                "Menor que" => actual < threshold,
+                "Menor ou igual a" => actual <= threshold,
+                _ => false
+            });
+        }
+    }
+
+    public class SizingRule
+    {
+        public string Name { get; set; } = "Nova regra";
+        public int MinimumBreakerA { get; set; } = 10;
+        public double MinimumSectionMm2 { get; set; } = 1.5;
+        public bool MatchAny { get; set; }
+        public List<SizingCondition> Conditions { get; set; } = new();
+        public bool Matches(CircuitInput input) => Conditions.Count > 0 &&
+            (MatchAny ? Conditions.Any(c => c.Matches(input)) : Conditions.All(c => c.Matches(input)));
+    }
+
     /// <summary>Configurações do dimensionamento, salvas em %AppData%\RafaelElectrical\dimensionamento.json.</summary>
     public class DimensioningSettings
     {
@@ -58,6 +130,8 @@ namespace RafaelElectrical.Services
 
         /// <summary>Seção que não aparece nos identificadores de fiação (0 = mostrar todas).</summary>
         public double OmitSectionInTags { get; set; } = 2.5;
+        public string CircuitSectionParameter { get; set; } = "RE_Seção (mm²)";
+        public string InterfaceLanguage { get; set; } = "Português Brasileiro";
 
         // ---------------- Dimensionamento ----------------
         [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -82,6 +156,49 @@ namespace RafaelElectrical.Services
 
         /// <summary>Fator de correção aplicado ao comprimento no quantitativo de fiação (sobras, subidas, emendas).</summary>
         public double WiringFactor { get; set; } = 1.20;
+        public bool WiringReportExpandedDescription { get; set; }
+        public bool BipolarSensorTwoReturns { get; set; } = true;
+        public bool SpaceTagsWithoutGround { get; set; } = true;
+        public List<CableSectionRule> CableSections { get; set; } = DefaultCableSections();
+        public Dictionary<string, List<CableDiameterRule>> CableDiameters { get; set; } = DefaultCableDiameters();
+
+        private static Dictionary<string, List<CableDiameterRule>> DefaultCableDiameters()
+        {
+            double[] sections = { 1.5, 2.5, 4, 6, 10, 16, 25, 35, 50, 70, 95, 120, 150, 185, 240, 300, 400, 500 };
+            double[] diameters = { 2.9, 3.5, 4, 4.6, 6, 6.8, 8.8, 10.2, 12.3, 14, 16, 17.8, 19.8, 22, 24.6, 27.8, 32.2, 35.8 };
+            return new Dictionary<string, List<CableDiameterRule>>
+            {
+                ["Isolado|PVC"] = sections.Select((section, i) =>
+                    new CableDiameterRule { Section = section, DiameterMm = diameters[i] }).ToList()
+            };
+        }
+
+        private static List<CableSectionRule> DefaultCableSections() => Nbr5410.Sections
+            .Where(x => x >= 1.5).Select(x => new CableSectionRule
+            {
+                Phase = x, Neutral = Nbr5410.ReducedNeutral(x),
+                Ground = Nbr5410.ProtectionSection(x), Return = x
+            }).Concat(new[]
+            {
+                new CableSectionRule { Phase = 400, Neutral = 185, Ground = 185, Return = 400 },
+                new CableSectionRule { Phase = 500, Neutral = 400, Ground = 300, Return = 500 },
+                new CableSectionRule { Phase = 630, Neutral = 400, Ground = 400, Return = 630 },
+                new CableSectionRule { Phase = 800, Neutral = 400, Ground = 400, Return = 800 },
+                new CableSectionRule { Phase = 1000, Neutral = 400, Ground = 500, Return = 1000 }
+            }).ToList();
+
+        public CableSectionRule SectionRule(double phase) => CableSections?.FirstOrDefault(x => Math.Abs(x.Phase - phase) < 1e-9);
+
+        public double CableDiameter(double section, string cableType = "Isolado", string insulation = "PVC")
+        {
+            string key = cableType + "|" + insulation;
+            if (CableDiameters != null && CableDiameters.TryGetValue(key, out var rows))
+            {
+                double value = rows.FirstOrDefault(r => Math.Abs(r.Section - section) < 1e-9)?.DiameterMm ?? 0;
+                if (value > 0) return value;
+            }
+            return section > 0 ? 3.6 * Math.Sqrt(section / 2.5) : 0;
+        }
 
         // ---------------- Agrupamento (Tabela 42, editável) ----------------
         public double[] GroupingClosed { get; set; } = Nbr5410.DefaultGrouping(GroupingKind.Closed);
@@ -108,12 +225,32 @@ namespace RafaelElectrical.Services
             (cables <= 1 ? OccupancyOneCable : cables == 2 ? OccupancyTwoCables : OccupancyMoreCables) / 100.0;
 
         // ---------------- Telecom ----------------
-        public string CableData { get; set; } = "UTP Cat6";
-        public string CableTelephone { get; set; } = "CCI 2 pares";
-        public string CableCommunication { get; set; } = "Coaxial RG6";
-        public string CableSecurity { get; set; } = "Coaxial RG59 + alimentação";
+        public string CableData { get; set; } = "UTP_CAT-5e";
+        public string CableTelephone { get; set; } = "CCI_1P";
+        public string CableCommunication { get; set; } = "RG59_47%";
+        public string CableSecurity { get; set; } = "RG59_47%";
         /// <summary>Diâmetro externo médio dos cabos de telecom (mm), para a taxa de ocupação.</summary>
         public double TelecomCableDiameterMm { get; set; } = 6.0;
+        public Dictionary<string, double> TelecomCableDiameters { get; set; } = new()
+        {
+            ["CCI_1P"] = 2.6, ["CCI_2P"] = 2.8, ["CCI_3P"] = 3.6, ["CCI_4P"] = 4.0,
+            ["CI_10P"] = 8.1, ["CI_20P"] = 9.25, ["CI_30P"] = 11.5, ["CI_40P"] = 13.8,
+            ["FO_N2"] = 4.8, ["FO_N4"] = 5.2, ["FO_N6"] = 5.6, ["FO_N8"] = 6.0, ["FO_N12"] = 6.5,
+            ["UTP_CAT-5e"] = 5.5, ["UTP_CAT-6"] = 6.0,
+            ["FTP_CAT-6"] = 7.5, ["FTP_CAT-6a"] = 8.8, ["FTP_CAT-7"] = 8.8,
+            ["RG59_47%"] = 5.7, ["RG59_67%"] = 5.7, ["RG59_95%"] = 5.7,
+            ["RG6_67%"] = 6.4, ["RG6_90%"] = 6.4, ["RG6_95%"] = 6.4
+        };
+        public Dictionary<string, string> TelecomCableNames { get; set; } = new();
+        public bool TelecomVerboseNomenclature { get; set; }
+        public string TelecomPanelSchedule { get; set; } = "Painel de Dados";
+        public bool TelecomTagDimension { get; set; }
+
+        public string TelecomName(string cable) => cable != null && TelecomCableNames.TryGetValue(cable, out string name) &&
+            !string.IsNullOrWhiteSpace(name) ? name : cable;
+
+        public double TelecomDiameter(string cable) => cable != null && TelecomCableDiameters.TryGetValue(cable, out double value)
+            ? value : TelecomCableDiameterMm;
 
         // ---------------- Documentação ----------------
         public bool DiagramUseDps { get; set; } = false;
@@ -123,6 +260,23 @@ namespace RafaelElectrical.Services
         public bool DiagramShowSpares { get; set; } = true;
         public bool DiagramShowEmpty { get; set; } = false;
         public bool DiagramProtectionDetail { get; set; } = false;
+        public bool DiagramUnifilar { get; set; } = true;
+        public string DiagramSize { get; set; } = "Grande";
+        public int DiagramDpsVoltageV { get; set; } = 275;
+        public int DiagramDpsCurrentKa { get; set; } = 45;
+        public bool DiagramDpsBreaker { get; set; } = true;
+        public int DiagramDpsBreakerA { get; set; } = 25;
+        public bool ProtectionShowSummary { get; set; } = true;
+        public bool ProtectionShowNeutralBus { get; set; } = true;
+        public bool ProtectionShowGroundBus { get; set; } = true;
+        public string ProtectionBusType { get; set; } = "DIN";
+        public int ProtectionBreakersPerRow { get; set; } = 4;
+        public int ProtectionFishboneMinCircuits { get; set; } = 4;
+        public Dictionary<string, string> TagViewByLevel { get; set; } = new();
+        public List<CircuitDocumentationRule> CircuitDocumentation { get; set; } = new();
+
+        public CircuitDocumentationRule DocumentationFor(string loadName, int poles) =>
+            CircuitDocumentation.FirstOrDefault(r => r.LoadName == loadName && r.Poles == poles);
 
         /// <summary>Identificadores de fiação: mostrar a seção.</summary>
         public bool TagShowSection { get; set; } = true;
@@ -143,13 +297,23 @@ namespace RafaelElectrical.Services
         public double ConduitDefaultDiameterMm { get; set; } = 25;
         public double TrayDefaultWidthMm { get; set; } = 50;
         public double TrayDefaultHeightMm { get; set; } = 50;
+        public double TagIgnoreConduitDiameterMm { get; set; } = 25;
+        public double TagIgnoreTrayWidthMm { get; set; } = 50;
+        public double TagIgnoreTrayHeightMm { get; set; } = 50;
         /// <summary>Tamanhos comerciais de eletrocalha (largura x altura em mm, ex.: "50x50").</summary>
         public List<string> TraySizes { get; set; } = new() { "50x50", "100x50", "150x50", "200x50", "200x100", "300x100", "400x100", "500x100" };
         /// <summary>Tipo de identificador por categoria de dispositivo ("Família : Tipo").</summary>
         public Dictionary<string, string> TagByCategory { get; set; } = new();
+        public Dictionary<string, string> TagByDeviceType { get; set; } = new();
+        public Dictionary<string, bool> TagCenterByDeviceType { get; set; } = new();
         /// <summary>Altura padrão da infraestrutura por nível (m acima do nível).</summary>
         public Dictionary<string, double> InfraHeightByLevel { get; set; } = new();
         public double InfraDefaultHeightM { get; set; } = 2.80;
+        public Dictionary<string, double> FloorOffsetByLevel { get; set; } = new();
+        public List<string> IgnoredInfraLevels { get; set; } = new();
+
+        public bool ConsiderInfraLevel(string name) => !IgnoredInfraLevels.Contains(name);
+        public double FloorOffset(string name) => FloorOffsetByLevel.TryGetValue(name, out double value) ? value : 0.20;
 
         public double InfraHeight(string levelName) =>
             levelName != null && InfraHeightByLevel.TryGetValue(levelName, out double h) ? h : InfraDefaultHeightM;
@@ -175,6 +339,7 @@ namespace RafaelElectrical.Services
             new CircuitClassRule { Name = "Tomadas de uso específico", Keywords = "tue;chuveiro;forno;micro;máquina;maquina;secadora", Curve = "C" },
             new CircuitClassRule { Name = "Ar-condicionado / motores", Keywords = "ar cond;ar-cond;split;motor;bomba;portão;portao", Curve = "D", Neutral = false },
         };
+        public List<SizingRule> SizingRules { get; set; } = new();
 
         public CircuitClassRule ClassOf(string loadName)
         {
@@ -280,10 +445,21 @@ namespace RafaelElectrical.Services
             if (s.WiringFactor <= 0) s.WiringFactor = 1.0;
             var d = new DimensioningSettings();
             s.ConduitDefaultDiameter ??= new Dictionary<string, double>();
+            s.CableSections ??= d.CableSections;
+            s.CableDiameters ??= d.CableDiameters;
+            s.TelecomCableDiameters ??= d.TelecomCableDiameters;
+            s.TelecomCableNames ??= new Dictionary<string, string>();
             s.TagByCategory ??= new Dictionary<string, string>();
+            s.TagByDeviceType ??= new Dictionary<string, string>();
+            s.TagCenterByDeviceType ??= new Dictionary<string, bool>();
             s.InfraHeightByLevel ??= new Dictionary<string, double>();
+            s.FloorOffsetByLevel ??= new Dictionary<string, double>();
+            s.TagViewByLevel ??= new Dictionary<string, string>();
+            s.CircuitDocumentation ??= new List<CircuitDocumentationRule>();
+            s.IgnoredInfraLevels ??= new List<string>();
             if (s.TraySizes == null || s.TraySizes.Count == 0) s.TraySizes = d.TraySizes;
             if (s.CircuitClasses == null || s.CircuitClasses.Count == 0) s.CircuitClasses = d.CircuitClasses;
+            s.SizingRules ??= new List<SizingRule>();
             if (s.EntranceCategories == null || s.EntranceCategories.Count == 0) s.EntranceCategories = d.EntranceCategories;
             if (s.DemandLightingLimitsKva == null || s.DemandLightingFactors == null ||
                 s.DemandLightingLimitsKva.Length != s.DemandLightingFactors.Length || s.DemandLightingFactors.Length == 0)
@@ -320,6 +496,49 @@ namespace RafaelElectrical.Services
                 r.MinimumBreakerA < 0 ||
                 (r.MinimumBreakerA > 0 && !Nbr5410.BreakerRatings.Contains(r.MinimumBreakerA))))
                 throw new ArgumentException("Mínimos por classe inválidos: use seção e disjuntor da tabela.");
+            if (SizingRules == null || SizingRules.Any(r => r == null || string.IsNullOrWhiteSpace(r.Name) ||
+                !Nbr5410.BreakerRatings.Contains(r.MinimumBreakerA) || !Nbr5410.Sections.Contains(r.MinimumSectionMm2) ||
+                r.Conditions == null || r.Conditions.Count == 0 || r.Conditions.Any(c => c == null ||
+                    string.IsNullOrWhiteSpace(c.Value) || !new[] { "Potência aparente (VA)", "Corrente (A)", "Nº fases", "Descrição da carga", "Família específica" }.Contains(c.Type) ||
+                    !(c.Type == "Descrição da carga" || c.Type == "Família específica"
+                        ? new[] { "Contém", "Não contém" }.Contains(c.Operator)
+                        : new[] { "Igual a", "Não é igual a", "Maior que", "Maior ou igual a", "Menor que", "Menor ou igual a" }.Contains(c.Operator)) ||
+                    (c.Type != "Descrição da carga" && c.Type != "Família específica" &&
+                     (!double.TryParse(c.Value.Replace(',', '.'), System.Globalization.NumberStyles.Float,
+                         System.Globalization.CultureInfo.InvariantCulture, out double number) || !double.IsFinite(number) || number < 0)))))
+                throw new ArgumentException("Regras condicionais de dimensionamento inválidas.");
+            if (CableSections == null || CableSections.Count == 0 ||
+                CableSections.Any(r => r == null || !double.IsFinite(r.Phase) || r.Phase <= 0 ||
+                    !double.IsFinite(r.Neutral) || r.Neutral <= 0 || r.Neutral > r.Phase ||
+                    !double.IsFinite(r.Ground) || r.Ground <= 0 || r.Ground > r.Phase ||
+                    !double.IsFinite(r.Return) || r.Return <= 0 || r.Return > r.Phase) ||
+                CableSections.Select(r => r.Phase).Distinct().Count() != CableSections.Count)
+                throw new ArgumentException("Tabela de seções de fase, neutro, terra e retorno inválida.");
+            if (CableDiameters == null || CableDiameters.Values.Any(rows => rows == null ||
+                rows.Any(r => r == null || !double.IsFinite(r.Section) || r.Section <= 0 ||
+                    !double.IsFinite(r.DiameterMm) || r.DiameterMm <= 0 || r.DiameterMm > 100)))
+                throw new ArgumentException("Tabela de diâmetros de cabos inválida.");
+            if (TelecomCableDiameters == null || TelecomCableDiameters.Any(kv => string.IsNullOrWhiteSpace(kv.Key) ||
+                !double.IsFinite(kv.Value) || kv.Value <= 0 || kv.Value > 100))
+                throw new ArgumentException("Diâmetros dos cabos de telecom inválidos.");
+            if (!double.IsFinite(TagIgnoreConduitDiameterMm) || TagIgnoreConduitDiameterMm <= 0 ||
+                !double.IsFinite(TagIgnoreTrayWidthMm) || TagIgnoreTrayWidthMm <= 0 ||
+                !double.IsFinite(TagIgnoreTrayHeightMm) || TagIgnoreTrayHeightMm <= 0)
+                throw new ArgumentException("Dimensões a ignorar nos identificadores inválidas.");
+            if (FloorOffsetByLevel == null || FloorOffsetByLevel.Any(kv => !double.IsFinite(kv.Value) || kv.Value < -5 || kv.Value > 5))
+                throw new ArgumentException("Cota de piso inválida.");
+            if (CircuitDocumentation == null || CircuitDocumentation.Any(r => r == null || string.IsNullOrWhiteSpace(r.LoadName) ||
+                r.Poles < 1 || r.Poles > 3 || !new[] { "", "Isolado", "Unipolar", "Multipolar" }.Contains(r.CableType) ||
+                !new[] { "PVC", "XLPE" }.Contains(r.Insulation) || !new[] { "B", "C", "D" }.Contains(r.Curve)))
+                throw new ArgumentException("Configuração dos circuitos inválida.");
+            if (!new[] { "Pequeno", "Médio", "Grande" }.Contains(DiagramSize) ||
+                !new[] { "DIN", "Espinha de peixe" }.Contains(ProtectionBusType) ||
+                !new[] { 75, 175, 275, 385, 460 }.Contains(DiagramDpsVoltageV) ||
+                !new[] { 20, 30, 45 }.Contains(DiagramDpsCurrentKa) ||
+                !Nbr5410.BreakerRatings.Contains(DiagramDpsBreakerA) ||
+                ProtectionBreakersPerRow < 4 || ProtectionBreakersPerRow > 24 ||
+                ProtectionFishboneMinCircuits < 4 || ProtectionFishboneMinCircuits > 100)
+                throw new ArgumentException("Opções de documentação inválidas.");
         }
 
         public DimensioningSettings Clone() =>

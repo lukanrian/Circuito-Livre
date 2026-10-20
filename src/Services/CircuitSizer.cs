@@ -14,6 +14,7 @@ namespace RafaelElectrical.Services
         public string Panel { get; set; }
         public string Number { get; set; }
         public string LoadName { get; set; }
+        public string FamilyNames { get; set; }
         public double VoltageV { get; set; }
         public int Poles { get; set; }
         public double ApparentLoadVA { get; set; }
@@ -94,7 +95,10 @@ namespace RafaelElectrical.Services
             }
 
             int loaded = c.Poles >= 3 ? 3 : 2;
-            double fct = Nbr5410.TemperatureFactor(s.Method, s.Insulation, s.TemperatureC);
+            CircuitDocumentationRule documentation = s.DocumentationFor(c.LoadName, c.Poles);
+            Insulation insulation = documentation == null ? s.Insulation :
+                documentation.Insulation == "XLPE" ? Insulation.EPR90 : Insulation.PVC70;
+            double fct = Nbr5410.TemperatureFactor(s.Method, insulation, s.TemperatureC);
             double fca = c.IgnoreGrouping ? 1.0
                 : c.FcaOverride ?? s.GroupingFactor(GroupingKind.Closed, c.GroupingOverride ?? s.GroupedCircuits);
 
@@ -102,13 +106,18 @@ namespace RafaelElectrical.Services
             CircuitClassRule rule = s.ClassOf(c.LoadName);
             double minSection = Math.Max(c.IsLighting ? s.MinSectionLighting : s.MinSectionPower, rule?.MinimumSectionMm2 ?? 0);
             double minBreaker = Math.Max(ib, rule?.MinimumBreakerA ?? 0);
+            foreach (SizingRule special in s.SizingRules.Where(x => x.Matches(c)))
+            {
+                minSection = Math.Max(minSection, special.MinimumSectionMm2);
+                minBreaker = Math.Max(minBreaker, special.MinimumBreakerA);
+            }
             double dropFactor = c.Poles >= 3 ? Math.Sqrt(3) : 2.0;
             double dropLimit = c.DropLimitOverride ?? s.MaxVoltageDropPercent;
 
             double Drop(double section) =>
                 c.LengthM > 0 ? dropFactor * s.Resistivity * c.LengthM * ib / section / c.VoltageV * 100.0 : 0.0;
             double Iz(double section) =>
-                Nbr5410.Ampacity(s.Method, s.Insulation, section, loaded) * fct * fca;
+                Nbr5410.Ampacity(s.Method, insulation, section, loaded) * fct * fca;
 
             double[] candidates = Nbr5410.Sections.Where(x => x >= minSection - 1e-9 && x <= s.MaxSection + 1e-9 && (!fixedSection.HasValue || x == fixedSection.Value)).ToArray();
             string maxText = Nbr5410.FormatSection(s.MaxSection);
@@ -151,8 +160,10 @@ namespace RafaelElectrical.Services
 
             double section = Math.Max(sAmp, sDrop);
             r.SectionMm2 = section;
-            r.ProtectionMm2 = Nbr5410.ProtectionSection(section);
-            r.NeutralMm2 = c.Poles >= 3 && s.ReducedNeutral ? Nbr5410.ReducedNeutral(section) : section;
+            CableSectionRule cableRule = s.SectionRule(section);
+            r.ProtectionMm2 = cableRule?.Ground ?? Nbr5410.ProtectionSection(section);
+            r.NeutralMm2 = c.Poles >= 3 && s.ReducedNeutral
+                ? cableRule?.Neutral ?? Nbr5410.ReducedNeutral(section) : section;
             r.BreakerA = breaker;
             r.IzA = Math.Round(Iz(section), 1);
             r.VoltageDropPercent = Drop(section);

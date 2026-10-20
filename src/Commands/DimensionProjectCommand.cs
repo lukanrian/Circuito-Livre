@@ -47,8 +47,9 @@ namespace RafaelElectrical.Commands
             }).ToList();
 
             string summary = $"Demanda total: {service.TotalDemandVa.ToString("N0", br)} VA  →  padrão de entrada: {service.Entrance}." +
-                             (string.IsNullOrWhiteSpace(cfg.Utility) ? "" : $"  Concessionária: {cfg.Utility} ({cfg.SupplySystem}).") +
+                             (!cfg.RegisterUtility || string.IsNullOrWhiteSpace(cfg.Utility) ? "" : $"  Concessionária: {cfg.Utility} ({cfg.SupplySystem}).") +
                              "\nFatores de demanda e categorias de atendimento editáveis em Configurações → Concessionária. " +
+                             "Os valores iniciais são exemplos, não uma tabela homologada da concessionária; confira antes de usar o padrão de entrada. " +
                              "Curto-circuito estimado só pela resistência dos alimentadores (confira com o cálculo completo).";
 
             var window = new TableWindow(Title, summary, headers, rows, 1150)

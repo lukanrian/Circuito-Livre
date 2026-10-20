@@ -102,11 +102,12 @@ namespace RafaelElectrical.Commands
                     try
                     {
                         ElementId tagType = TagCatalog.Configured(doc, e, cfgTags);
+                        XYZ tagPoint = TagCatalog.Centered(e, cfgTags) ? p : p + new XYZ(off, off, 0);
                         if (tagType != null)
-                            IndependentTag.Create(doc, tagType, view.Id, new Reference(e), false, TagOrientation.Horizontal, p + new XYZ(off, off, 0));
+                            IndependentTag.Create(doc, tagType, view.Id, new Reference(e), false, TagOrientation.Horizontal, tagPoint);
                         else
                             IndependentTag.Create(doc, view.Id, new Reference(e), false, TagMode.TM_ADDBY_CATEGORY,
-                                TagOrientation.Horizontal, p + new XYZ(off, off, 0));
+                                TagOrientation.Horizontal, tagPoint);
                         created++;
                     }
                     catch (Exception) { failedCategories.Add(e.Category.Name); }
@@ -194,10 +195,10 @@ namespace RafaelElectrical.Commands
                         Add("Proteção", Mm(pe), 1);
                         break;
                     }
-                    case ElectricalSystemType.Data: Add("Dados", cfg.CableData, 1); break;
-                    case ElectricalSystemType.Telephone: Add("Telefone", cfg.CableTelephone, 1); break;
-                    case ElectricalSystemType.Communication: Add("Comunicação", cfg.CableCommunication, 1); break;
-                    case ElectricalSystemType.Security: Add("Segurança", cfg.CableSecurity, 1); break;
+                    case ElectricalSystemType.Data: Add("Dados", cfg.TelecomName(cfg.CableData), 1); break;
+                    case ElectricalSystemType.Telephone: Add("Telefone", cfg.TelecomName(cfg.CableTelephone), 1); break;
+                    case ElectricalSystemType.Communication: Add("Comunicação", cfg.TelecomName(cfg.CableCommunication), 1); break;
+                    case ElectricalSystemType.Security: Add("Segurança", cfg.TelecomName(cfg.CableSecurity), 1); break;
                     default: Add(c.SystemType.ToString(), "cabo", 1); break;
                 }
             }
@@ -205,14 +206,18 @@ namespace RafaelElectrical.Commands
             var dialog = new SaveFileDialog { Filter = "Excel (*.xlsx)|*.xlsx|CSV (*.csv)|*.csv", FileName = "Relatorio_Fiacao.xlsx", Title = "Salvar relatório de fiação" };
             if (dialog.ShowDialog() != true) return Result.Cancelled;
 
+            string CableDescription(string role, string cable) => cfg.WiringReportExpandedDescription && colors.ContainsKey(role)
+                ? $"Condutor de cobre isolado, {cable}, {colors[role].ToLowerInvariant()}"
+                : cable;
+
             if (dialog.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
             {
                 string ColorX(string role) => colors.TryGetValue(role, out string v) ? v : "";
                 var byPanel = new List<IList<object>> { new object[] { "Quadro", "Função", "Cabo", "Cor", "Comprimento (m)" } };
-                byPanel.AddRange(totals.Select(kv => (IList<object>)new object[] { kv.Key.Panel, kv.Key.Role, kv.Key.Cable, ColorX(kv.Key.Role), Math.Round(kv.Value, 1) }));
+                byPanel.AddRange(totals.Select(kv => (IList<object>)new object[] { kv.Key.Panel, kv.Key.Role, CableDescription(kv.Key.Role, kv.Key.Cable), ColorX(kv.Key.Role), Math.Round(kv.Value, 1) }));
                 var overall = new List<IList<object>> { new object[] { "Função", "Cabo", "Cor", "Comprimento (m)" } };
                 overall.AddRange(totals.GroupBy(kv => (kv.Key.Role, kv.Key.Cable)).OrderBy(g => g.Key.Role).ThenBy(g => g.Key.Cable)
-                    .Select(g => (IList<object>)new object[] { g.Key.Role, g.Key.Cable, ColorX(g.Key.Role), Math.Round(g.Sum(x => x.Value), 1) }));
+                    .Select(g => (IList<object>)new object[] { g.Key.Role, CableDescription(g.Key.Role, g.Key.Cable), ColorX(g.Key.Role), Math.Round(g.Sum(x => x.Value), 1) }));
                 new XlsxWriter().Sheet("Por quadro", byPanel).Sheet("Total geral", overall).Save(dialog.FileName);
                 TaskDialog.Show("Relatório de fiação", $"Relatório exportado (folga {extra:0.#} %)." +
                     (noLength > 0 ? $"\n{noLength} circuito(s) sem comprimento ficaram de fora (rode o Atualizar Quadros)." : ""));
@@ -225,11 +230,11 @@ namespace RafaelElectrical.Commands
             sb.AppendLine($"Relatório de fiação;folga {extra.ToString(br)} %");
             sb.AppendLine("Quadro;Função;Cabo;Cor;Comprimento (m)");
             foreach (var kv in totals)
-                sb.AppendLine($"{kv.Key.Panel};{kv.Key.Role};{kv.Key.Cable};{Color(kv.Key.Role)};{kv.Value.ToString("0.0", br)}");
+                sb.AppendLine($"{kv.Key.Panel};{kv.Key.Role};{CableDescription(kv.Key.Role, kv.Key.Cable)};{Color(kv.Key.Role)};{kv.Value.ToString("0.0", br)}");
             sb.AppendLine();
             sb.AppendLine("TOTAL GERAL;Função;Cabo;Cor;Comprimento (m)");
             foreach (var g in totals.GroupBy(kv => (kv.Key.Role, kv.Key.Cable)).OrderBy(g => g.Key.Role).ThenBy(g => g.Key.Cable))
-                sb.AppendLine($";{g.Key.Role};{g.Key.Cable};{Color(g.Key.Role)};{g.Sum(x => x.Value).ToString("0.0", br)}");
+                sb.AppendLine($";{g.Key.Role};{CableDescription(g.Key.Role, g.Key.Cable)};{Color(g.Key.Role)};{g.Sum(x => x.Value).ToString("0.0", br)}");
 
             File.WriteAllText(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
             TaskDialog.Show("Relatório de fiação", "Relatório exportado." +

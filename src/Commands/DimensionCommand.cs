@@ -170,6 +170,7 @@ namespace RafaelElectrical.Commands
                 Panel = string.IsNullOrWhiteSpace(c.PanelName) ? "(sem quadro)" : c.PanelName,
                 Number = c.CircuitNumber,
                 LoadName = c.LoadName,
+                FamilyNames = string.Join(";", devices.OfType<FamilyInstance>().Select(d => $"{d.Symbol.FamilyName} : {d.Symbol.Name}")),
                 VoltageV = Safe(() => UnitUtils.ConvertFromInternalUnits(c.Voltage, UnitTypeId.Volts)),
                 Poles = Math.Max(1, Safe(() => c.PolesNumber)),
                 ApparentLoadVA = Safe(() => UnitUtils.ConvertFromInternalUnits(c.ApparentLoad, UnitTypeId.VoltAmperes)),
