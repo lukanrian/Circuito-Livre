@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -15,17 +15,19 @@ namespace RafaelElectrical.Views
     public partial class DimensionWindow : Window
     {
         private readonly List<CircuitInput> _inputs;
+        private readonly List<CircuitInput> _context;
 
         public DimensioningSettings Settings { get; private set; }
         public List<SizingResult> Results { get; private set; } = new List<SizingResult>();
         public bool ApplyRequested { get; private set; }
 
-        public DimensionWindow(List<CircuitInput> inputs, DimensioningSettings settings, string scope)
+        public DimensionWindow(List<CircuitInput> inputs, DimensioningSettings settings, string scope, List<CircuitInput> context = null)
         {
             InitializeComponent();
             Language = XmlLanguage.GetLanguage("pt-BR");
             Title = $"Dimensionar instalação (NBR 5410) — {scope}";
             _inputs = inputs;
+            _context = context;
             Settings = settings;
             LoadSettings(settings);
             Calculate();
@@ -76,6 +78,8 @@ namespace RafaelElectrical.Views
                 s.Resistivity = rho;
                 s.MinSectionLighting = minL;
                 s.MinSectionPower = minP;
+                try { s.ValidateForSizing(); }
+                catch (ArgumentException ex) { error = ex.Message; return false; }
                 Settings = s;
                 return true;
             }
@@ -83,11 +87,11 @@ namespace RafaelElectrical.Views
         }
 
         private static bool TryNumber(string text, out double value) =>
-            double.TryParse((text ?? "").Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+            double.TryParse((text ?? "").Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out value) && double.IsFinite(value);
 
         private void Calculate()
         {
-            Results = SizeAll(_inputs, Settings, out int totalFail);
+            Results = SizingCoordinator.SizeAll(_inputs, Settings, out int totalFail, _context);
             ResultGrid.ItemsSource = Results;
 
             int ok = Results.Count(r => r.Ok);
@@ -108,44 +112,7 @@ namespace RafaelElectrical.Views
         /// </summary>
         public static List<SizingResult> SizeAll(List<CircuitInput> inputs, DimensioningSettings s, out int totalFail)
         {
-            foreach (CircuitInput i in inputs) { i.UpstreamDropPercent = 0; i.DropLimitOverride = null; }
-            List<SizingResult> results = inputs.Select(i => CircuitSizer.Size(i, s)).ToList();
-            totalFail = 0;
-            if (!s.CheckTotalVoltageDrop) return results;
-
-            for (int pass = 0; pass < 4; pass++)
-            {
-                // queda de cada alimentador por quadro alimentado
-                var feeder = results.Where(r => r.Ok && !string.IsNullOrEmpty(r.Input.FeedsPanel))
-                    .GroupBy(r => r.Input.FeedsPanel, StringComparer.CurrentCultureIgnoreCase)
-                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.CurrentCultureIgnoreCase);
-
-                double Upstream(string panel, int depth)
-                {
-                    if (depth > 20 || panel == null || !feeder.TryGetValue(panel, out SizingResult f)) return 0;
-                    return f.VoltageDropPercent + Upstream(f.Input.Panel, depth + 1);
-                }
-
-                bool changed = false;
-                foreach (CircuitInput i in inputs)
-                {
-                    double up = Math.Round(Upstream(i.Panel, 0), 3);
-                    double allowed = Math.Max(0.1, s.TotalVoltageDropPercent - up);
-                    double? limit = allowed < s.MaxVoltageDropPercent ? allowed : (double?)null;
-                    if (Math.Abs(up - i.UpstreamDropPercent) > 1e-6 || limit != i.DropLimitOverride) changed = true;
-                    i.UpstreamDropPercent = up;
-                    i.DropLimitOverride = limit;
-                }
-                results = inputs.Select(i => CircuitSizer.Size(i, s)).ToList();
-                if (!changed) break;
-            }
-
-            foreach (SizingResult r in results.Where(r => r.Ok && r.TotalDropPercent > s.TotalVoltageDropPercent + 1e-6))
-            {
-                r.Status = $"Queda total {r.TotalDropPercent:0.00} % > {s.TotalVoltageDropPercent:0.#} %";
-                totalFail++;
-            }
-            return results;
+            return SizingCoordinator.SizeAll(inputs, s, out totalFail);
         }
 
         private void Calculate_Click(object sender, RoutedEventArgs e)
@@ -176,10 +143,36 @@ namespace RafaelElectrical.Views
             var dialog = new SaveFileDialog
             {
                 Title = "Exportar relatório de dimensionamento",
-                Filter = "CSV (Excel) (*.csv)|*.csv",
-                FileName = "Relatorio_Dimensionamento.csv",
+                Filter = "Excel (*.xlsx)|*.xlsx|CSV (*.csv)|*.csv",
+                FileName = "Relatorio_Dimensionamento.xlsx",
             };
             if (dialog.ShowDialog(this) != true) return;
+
+            if (dialog.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                var sheet = new System.Collections.Generic.List<System.Collections.Generic.IList<object>>
+                {
+                    new object[] { "Quadro", "Circuito", "Descrição", "Tensão (V)", "Polos", "Ib (A)", "Comprimento (m)", "Agrupamento", "Seção (mm²)", "PE (mm²)",
+                        "Disjuntor (A)", "Iz (A)", "Queda (%)", "Queda total (%)", "Critério", "Fiação", "Situação" },
+                };
+                foreach (SizingResult r in Results)
+                    sheet.Add(new object[]
+                    {
+                        r.Panel, r.Number, r.LoadName, Math.Round(r.VoltageV), r.Poles, Math.Round(r.CurrentA, 2), Math.Round(r.LengthM, 1), r.Grouping?.ToString(),
+                        r.SectionMm2 > 0 ? r.SectionMm2 : (object)"", r.ProtectionMm2 > 0 ? r.ProtectionMm2 : (object)"", r.BreakerA > 0 ? (double)r.BreakerA : (object)"",
+                        Math.Round(r.IzA, 1), Math.Round(r.VoltageDropPercent, 2), Math.Round(r.TotalDropPercent, 2), r.Criterion, r.Wiring, r.Status,
+                    });
+                try
+                {
+                    new XlsxWriter().Sheet("Dimensionamento", sheet).Save(dialog.FileName);
+                    MessageBox.Show(this, "Relatório exportado.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, $"Não foi possível salvar:\n{ex.Message}", Title, MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                return;
+            }
 
             var sb = new StringBuilder();
             sb.AppendLine($"Método {Settings.Method};Isolação {Settings.Insulation};Temperatura {Settings.TemperatureC.ToString(Br)} °C;" +

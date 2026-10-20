@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -22,9 +22,21 @@ namespace RafaelElectrical.Views
         private readonly List<Action<DimensioningSettings>> _load = new();
         private readonly List<Func<DimensioningSettings, string>> _save = new();
 
-        public SettingsWindow(DimensioningSettings settings)
+        /// <summary>Marcado: gravar as configurações dentro do projeto ativo.</summary>
+        public bool SaveInProject => _projectCheck?.IsChecked == true;
+
+        private readonly bool? _projectOption;
+        private CheckBox _projectCheck;
+
+        /// <param name="projectOption">null = sem projeto ativo; true/false = o projeto já tem configurações próprias.</param>
+        private readonly SettingsContext _ctx;
+
+        public SettingsWindow(DimensioningSettings settings, bool? projectOption = null, SettingsContext context = null)
         {
-            Title = $"RafaelElectrical {RevitHelpers.PluginVersion} — Configurações";
+            _projectOption = projectOption;
+            _ctx = context ?? new SettingsContext();
+            Title = $"RafaelElectrical {RevitHelpers.PluginVersion} — Configurações" +
+                    (projectOption == true ? " (deste projeto)" : "");
             Width = 760;
             Height = 600;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -36,9 +48,14 @@ namespace RafaelElectrical.Views
             tabs.Items.Add(Tab("Agrupamento", GroupingTab()));
             tabs.Items.Add(Tab("Ocupação", OccupancyTab()));
             tabs.Items.Add(Tab("Dimensionamento", SizingTab()));
+            tabs.Items.Add(Tab("Conduítes", ConduitsTab()));
+            tabs.Items.Add(Tab("Bandejas", TraysTab()));
             tabs.Items.Add(Tab("Telecom", TelecomTab()));
+            tabs.Items.Add(Tab("Identificadores", TagsTab()));
+            tabs.Items.Add(Tab("Cota do conduíte", HeightsTab()));
+            tabs.Items.Add(Tab("Concessionária", UtilityTab()));
             tabs.Items.Add(Tab("Documentação", DocumentationTab()));
-            tabs.Items.Add(Tab("Intercâmbio", ExchangeTab()));
+            tabs.Items.Add(Tab("Projeto e arquivos", ExchangeTab()));
 
             var cancel = new Button { Content = "Cancelar", Width = 90, Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
             var ok = new Button { Content = "OK", Width = 90, IsDefault = true };
@@ -75,6 +92,14 @@ namespace RafaelElectrical.Views
             Group(p, "Seções mínimas (Tabela 47)");
             SectionCombo(p, "Circuitos de iluminação (mm²):", s => s.MinSectionLighting, (s, v) => s.MinSectionLighting = v, allowNone: false);
             SectionCombo(p, "Circuitos de força (mm²):", s => s.MinSectionPower, (s, v) => s.MinSectionPower = v, allowNone: false);
+            Group(p, "Identificação de retornos");
+            Radio(p, "returns", "Separar retornos de luminárias e interruptores nos identificadores", s => !s.JoinReturns, s => s.JoinReturns = false);
+            Radio(p, "returns", "Unir retornos de luminárias e interruptores nos identificadores", s => s.JoinReturns, s => s.JoinReturns = true);
+            Group(p, "Ordenação das legendas de fiação");
+            Radio(p, "legend", "Numérica (1, 2, 3...)", s => !s.LegendAlphabetic, s => s.LegendAlphabetic = false);
+            Radio(p, "legend", "Alfabética (A, B, C...)", s => s.LegendAlphabetic, s => s.LegendAlphabetic = true);
+            Group(p, "Recursos necessários");
+            Note(p, "Os parâmetros RE_ são criados automaticamente no projeto na primeira vez que cada comando precisa deles.");
             return Scroll(p);
         }
 
@@ -140,6 +165,20 @@ namespace RafaelElectrical.Views
             Radio(p, "total", "A partir dos terminais do transformador ou gerador próprio (ΔV total = 7%)",
                 s => s.TotalVoltageDropPercent >= 6, s => s.TotalVoltageDropPercent = 7);
             Number(p, "Resistividade do cobre (Ω·mm²/m):", s => s.Resistivity, (s, v) => s.Resistivity = v, 0.001, 1);
+            Group(p, "Proteção DR");
+            Check(p, "Adicionar disjuntor antes dos grupos de DR quando a corrente nominal do DR for menor que a do disjuntor geral",
+                s => s.BreakerBeforeDr, (s, v) => s.BreakerBeforeDr = v);
+            Integer(p, "Máximo de circuitos por DR:", s => s.DrMaxCircuits, (s, v) => s.DrMaxCircuits = v, 1, 30);
+            Number(p, "Sensibilidade do DR (mA):", s => s.DrSensitivityMa, (s, v) => s.DrSensitivityMa = v, 10, 500);
+            Text(p, "Descrições que exigem DR (separadas por ;):", s => s.DrKeywords, (s, v) => s.DrKeywords = v);
+            Group(p, "Temperatura de sobrecarga dos cabos");
+            Radio(p, "overload", "Sobrecarga ABAIXO do tempo normativo", s => !s.OverloadAboveNormativeTime, s => s.OverloadAboveNormativeTime = false);
+            Radio(p, "overload", "Sobrecarga ACIMA do tempo normativo", s => s.OverloadAboveNormativeTime, s => s.OverloadAboveNormativeTime = true);
+            Group(p, "Critério de múltiplos condutores");
+            Radio(p, "ncf", "Quantidade de condutores por neutro e por terra é sempre igual a um", s => !s.MultipleConductorsNcf, s => s.MultipleConductorsNcf = false);
+            Radio(p, "ncf", "Por neutro = N.C.F. e por terra = metade do N.C.F.", s => s.MultipleConductorsNcf, s => s.MultipleConductorsNcf = true);
+            Group(p, "Classes de circuito (pela descrição do circuito)");
+            ClassesTable(p);
             Group(p, "Revit");
             Check(p, "Atualizar o disjuntor nativo (Classificação) do circuito", s => s.UpdateRevitRating, (s, v) => s.UpdateRevitRating = v);
             return Scroll(p);
@@ -161,15 +200,225 @@ namespace RafaelElectrical.Views
         private UIElement DocumentationTab()
         {
             var p = NewPanel();
-            Group(p, "Diagrama unifilar");
+            Group(p, "Identificadores de fiação");
+            Check(p, "Seção do circuito nos identificadores", s => s.TagShowSection, (s, v) => s.TagShowSection = v);
+            Radio(p, "orient", "Identificadores na horizontal", s => !s.TagAlongConduit, s => s.TagAlongConduit = false);
+            Radio(p, "orient", "Identificadores no eixo do eletroduto", s => s.TagAlongConduit, s => s.TagAlongConduit = true);
+            Number(p, "Tamanho do texto (mm no papel):", s => s.TagTextMm, (s, v) => s.TagTextMm = v, 1, 6);
+            Group(p, "Agrupamento de terra");
+            Radio(p, "ground", "Não agrupar (um terra por circuito)", s => s.GroundGrouping == GroundGrouping.None, s => s.GroundGrouping = GroundGrouping.None);
+            Radio(p, "ground", "Um cabo único de aterramento por trecho", s => s.GroundGrouping == GroundGrouping.OnePerRun, s => s.GroundGrouping = GroundGrouping.OnePerRun);
+            Radio(p, "ground", "Agrupar só os circuitos de iluminação", s => s.GroundGrouping == GroundGrouping.LightingOnly, s => s.GroundGrouping = GroundGrouping.LightingOnly);
+            Group(p, "Diagramas");
+            Check(p, "Criar também o diagrama multifilar", s => s.DiagramMultifilar, (s, v) => s.DiagramMultifilar = v);
+            Check(p, "Adicionar circuitos reserva ao diagrama", s => s.DiagramShowSpares, (s, v) => s.DiagramShowSpares = v);
+            Check(p, "Adicionar espaços vazios ao diagrama", s => s.DiagramShowEmpty, (s, v) => s.DiagramShowEmpty = v);
+            Check(p, "Criar detalhe da proteção (tabela de disjuntores, curvas e DR)", s => s.DiagramProtectionDetail, (s, v) => s.DiagramProtectionDetail = v);
             Check(p, "Desenhar DPS no barramento do quadro", s => s.DiagramUseDps, (s, v) => s.DiagramUseDps = v);
+            Check(p, "DPS também no neutro", s => s.DiagramDpsOnNeutral, (s, v) => s.DiagramDpsOnNeutral = v);
             Text(p, "Texto do DPS:", s => s.DiagramDpsText, (s, v) => s.DiagramDpsText = v);
             return Scroll(p);
+        }
+
+        private UIElement ConduitsTab()
+        {
+            var p = NewPanel();
+            Note(p, "Diâmetro padrão de cada tipo de eletroduto. Trechos com outro diâmetro recebem o identificador de dimensão.");
+            Number(p, "Diâmetro padrão geral (mm):", s => s.ConduitDefaultDiameterMm, (s, v) => s.ConduitDefaultDiameterMm = v, 5, 300);
+            foreach (string type in _ctx.ConduitTypes)
+                DictNumber(p, type, s => s.ConduitDefaultDiameter, s => s.ConduitDefaultDiameterMm, 5, 300);
+            if (_ctx.ConduitTypes.Count == 0) Note(p, "(abra as Configurações com um projeto aberto para listar os tipos de eletroduto)");
+            return Scroll(p);
+        }
+
+        private UIElement TraysTab()
+        {
+            var p = NewPanel();
+            Group(p, "Tamanho padrão (não recebe identificador de dimensão)");
+            Number(p, "Largura (mm):", s => s.TrayDefaultWidthMm, (s, v) => s.TrayDefaultWidthMm = v, 10, 2000);
+            Number(p, "Altura (mm):", s => s.TrayDefaultHeightMm, (s, v) => s.TrayDefaultHeightMm = v, 10, 1000);
+            Group(p, "Tamanhos comerciais (largura x altura, um por linha)");
+            Lines(p, s => s.TraySizes, (s, v) => s.TraySizes = v);
+            return Scroll(p);
+        }
+
+        private UIElement TagsTab()
+        {
+            var p = NewPanel();
+            Note(p, "Identificador usado em cada categoria pelo Criar Identificadores por Seleção (vazio = o padrão do Revit).");
+            foreach (var kv in _ctx.TagOptions)
+            {
+                var combo = new ComboBox();
+                combo.Items.Add(new ComboBoxItem { Content = "(padrão do Revit)", Tag = "" });
+                foreach (string option in kv.Value) combo.Items.Add(new ComboBoxItem { Content = option, Tag = option });
+                Row(p, kv.Key + ":", combo);
+                string category = kv.Key;
+                _load.Add(s =>
+                {
+                    string v = s.TagByCategory.TryGetValue(category, out string x) ? x : "";
+                    combo.SelectedItem = combo.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == v) ?? combo.Items[0];
+                });
+                _save.Add(s =>
+                {
+                    string v = (string)((ComboBoxItem)combo.SelectedItem).Tag;
+                    if (string.IsNullOrEmpty(v)) s.TagByCategory.Remove(category); else s.TagByCategory[category] = v;
+                    return null;
+                });
+            }
+            if (_ctx.TagOptions.Count == 0) Note(p, "(abra as Configurações com um projeto aberto para listar os identificadores carregados)");
+            return Scroll(p);
+        }
+
+        private UIElement HeightsTab()
+        {
+            var p = NewPanel();
+            Note(p, "Altura da infraestrutura em relação a cada nível, usada pelo Construir Conduítes.");
+            Number(p, "Altura padrão (m):", s => s.InfraDefaultHeightM, (s, v) => s.InfraDefaultHeightM = v, -5, 20);
+            foreach (string level in _ctx.LevelNames)
+                DictNumber(p, level, s => s.InfraHeightByLevel, s => s.InfraDefaultHeightM, -5, 20);
+            return Scroll(p);
+        }
+
+        private UIElement UtilityTab()
+        {
+            var p = NewPanel();
+            Check(p, "Registrar concessionária no projeto", s => s.RegisterUtility, (s, v) => s.RegisterUtility = v);
+            Text(p, "Concessionária de energia:", s => s.Utility, (s, v) => s.Utility = v);
+            Text(p, "Sistema de distribuição:", s => s.SupplySystem, (s, v) => s.SupplySystem = v);
+            Text(p, "Padrão de entrada preferido:", s => s.EntranceType, (s, v) => s.EntranceType = v);
+            Text(p, "Padrão de entrada (unidade coletiva):", s => s.EntranceTypeCollective, (s, v) => s.EntranceTypeCollective = v);
+            Group(p, "Categorias de atendimento (demanda máx. em kVA;descrição — uma por linha)");
+            Note(p, "Valores de exemplo: substitua pela tabela da sua concessionária.");
+            Lines(p, s => s.EntranceCategories, (s, v) => s.EntranceCategories = v);
+            Group(p, "Fatores de demanda — iluminação e TUG (por faixa de carga, kVA)");
+            Note(p, "Valores típicos de concessionárias brasileiras; confira a norma da sua concessionária.");
+            GroupingRow(p, "Fator", new[] { "≤1", "≤2", "≤3", "≤4", "≤5", "≤6", "≤7", "≤8", "≤9", "≤10", ">10" },
+                s => s.DemandLightingFactors, (s, v) => s.DemandLightingFactors = v);
+            GroupingRow(p, "Fatores de demanda — TUE pela quantidade de aparelhos", new[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12+" },
+                s => s.DemandTueFactors, (s, v) => s.DemandTueFactors = v);
+            Group(p, "Curto-circuito");
+            Number(p, "Corrente de curto-circuito presumida na origem (kA):", s => s.SourceShortCircuitKa, (s, v) => s.SourceShortCircuitKa = v, 0.5, 100);
+            Number(p, "Capacidade de interrupção dos disjuntores (kA):", s => s.BreakerIcuKa, (s, v) => s.BreakerIcuKa = v, 1, 100);
+            return Scroll(p);
+        }
+
+        private void DictNumber(Panel p, string key, Func<DimensioningSettings, Dictionary<string, double>> dict,
+            Func<DimensioningSettings, double> fallback, double min, double max)
+        {
+            var box = new TextBox();
+            Row(p, key + ":", box);
+            _load.Add(s => box.Text = (dict(s).TryGetValue(key, out double v) ? v : fallback(s)).ToString("0.##", Br));
+            _save.Add(s =>
+            {
+                if (!TryNumber(box.Text, out double v) || v < min || v > max) return $"Valor inválido em \"{key}\" (entre {min} e {max}).";
+                if (Math.Abs(v - fallback(s)) < 1e-9) dict(s).Remove(key); else dict(s)[key] = v;
+                return null;
+            });
+        }
+
+        private void Lines(Panel p, Func<DimensioningSettings, List<string>> get, Action<DimensioningSettings, List<string>> set)
+        {
+            var box = new TextBox { AcceptsReturn = true, Height = 130, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, TextWrapping = TextWrapping.NoWrap };
+            p.Children.Add(box);
+            _load.Add(s => box.Text = string.Join(Environment.NewLine, get(s) ?? new List<string>()));
+            _save.Add(s =>
+            {
+                set(s, box.Text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList());
+                return null;
+            });
+        }
+
+        private void ClassesTable(Panel p)
+        {
+            var g = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+            foreach (double w in new[] { 3.0, 4.0, 1.0, 1.0, 1.0, 1.5, 1.5 }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w, GridUnitType.Star) });
+            string[] headers = { "Classe", "Palavras na descrição (;)", "Curva", "Neutro", "Terra", "Seção mín. mm²", "Disj. mín. A" };
+            g.RowDefinitions.Add(new RowDefinition());
+            for (int i = 0; i < headers.Length; i++)
+            {
+                var h = new TextBlock { Text = headers[i], FontWeight = FontWeights.SemiBold };
+                Grid.SetColumn(h, i);
+                g.Children.Add(h);
+            }
+            const int rows = 8;
+            var name = new TextBox[rows]; var keys = new TextBox[rows]; var curve = new ComboBox[rows]; var neutral = new CheckBox[rows]; var ground = new CheckBox[rows];
+            var minSection = new TextBox[rows]; var minBreaker = new TextBox[rows];
+            for (int r = 0; r < rows; r++)
+            {
+                g.RowDefinitions.Add(new RowDefinition());
+                name[r] = new TextBox { Margin = new Thickness(1) };
+                keys[r] = new TextBox { Margin = new Thickness(1) };
+                curve[r] = new ComboBox { Margin = new Thickness(1) };
+                foreach (string c in new[] { "B", "C", "D" }) curve[r].Items.Add(c);
+                neutral[r] = new CheckBox { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                ground[r] = new CheckBox { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                minSection[r] = new TextBox { Margin = new Thickness(1) };
+                minBreaker[r] = new TextBox { Margin = new Thickness(1) };
+                UIElement[] cells = { name[r], keys[r], curve[r], neutral[r], ground[r], minSection[r], minBreaker[r] };
+                for (int c = 0; c < cells.Length; c++)
+                {
+                    Grid.SetRow(cells[c], r + 1);
+                    Grid.SetColumn(cells[c], c);
+                    g.Children.Add(cells[c]);
+                }
+            }
+            p.Children.Add(g);
+            _load.Add(s =>
+            {
+                for (int r = 0; r < rows; r++)
+                {
+                    CircuitClassRule rule = r < s.CircuitClasses.Count ? s.CircuitClasses[r] : null;
+                    name[r].Text = rule?.Name ?? "";
+                    keys[r].Text = rule?.Keywords ?? "";
+                    curve[r].SelectedItem = rule?.Curve ?? "C";
+                    neutral[r].IsChecked = rule?.Neutral ?? true;
+                    ground[r].IsChecked = rule?.Ground ?? true;
+                    minSection[r].Text = rule?.MinimumSectionMm2 > 0 ? rule.MinimumSectionMm2.ToString(Br) : "";
+                    minBreaker[r].Text = rule?.MinimumBreakerA > 0 ? rule.MinimumBreakerA.ToString(Br) : "";
+                }
+            });
+            _save.Add(s =>
+            {
+                var list = new List<CircuitClassRule>();
+                for (int r = 0; r < rows; r++)
+                {
+                    if (string.IsNullOrWhiteSpace(name[r].Text)) continue;
+                    if (!double.TryParse(string.IsNullOrWhiteSpace(minSection[r].Text) ? "0" : minSection[r].Text, System.Globalization.NumberStyles.Float, Br, out double section) ||
+                        !int.TryParse(string.IsNullOrWhiteSpace(minBreaker[r].Text) ? "0" : minBreaker[r].Text, out int breaker))
+                        return "Mínimos de seção e disjuntor devem ser números válidos.";
+                    list.Add(new CircuitClassRule
+                    {
+                        Name = name[r].Text.Trim(),
+                        Keywords = keys[r].Text.Trim(),
+                        Curve = curve[r].SelectedItem as string ?? "C",
+                        Neutral = neutral[r].IsChecked == true,
+                        Ground = ground[r].IsChecked == true,
+                        MinimumSectionMm2 = section,
+                        MinimumBreakerA = breaker,
+                    });
+                }
+                s.CircuitClasses = list;
+                return null;
+            });
         }
 
         private UIElement ExchangeTab()
         {
             var p = NewPanel();
+            if (_projectOption != null)
+            {
+                Group(p, "Onde guardar");
+                _projectCheck = new CheckBox
+                {
+                    Content = new TextBlock { Text = "Guardar estas configurações dentro deste projeto (.rvt)", TextWrapping = TextWrapping.Wrap },
+                    IsChecked = _projectOption == true,
+                    Margin = new Thickness(0, 4, 0, 4),
+                };
+                p.Children.Add(_projectCheck);
+                Note(p, "Marcado: o projeto passa a usar as próprias configurações, em qualquer computador que abrir o arquivo. " +
+                        "Desmarcado: o projeto usa as configurações deste computador.");
+            }
+
             Group(p, "Exportar configurações");
             Note(p, "Salva todas as configurações desta janela num arquivo .json (inclusive alterações ainda não confirmadas com OK).");
             var export = new Button { Content = "Exportar...", Width = 110, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 8) };
@@ -215,6 +464,8 @@ namespace RafaelElectrical.Views
                 string error = f(s);
                 if (error != null) return error;
             }
+            try { s.ValidateForSizing(); }
+            catch (ArgumentException ex) { return ex.Message; }
             return null;
         }
 
@@ -257,7 +508,7 @@ namespace RafaelElectrical.Views
         }
 
         private static bool TryNumber(string text, out double v) =>
-            double.TryParse((text ?? "").Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out v);
+            double.TryParse((text ?? "").Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out v) && double.IsFinite(v);
 
         private void Number(Panel p, string label, Func<DimensioningSettings, double> get, Action<DimensioningSettings, double> set, double min, double max)
         {
@@ -358,5 +609,13 @@ namespace RafaelElectrical.Views
                 return null;
             });
         }
+    }
+
+    /// <summary>Listas do projeto aberto usadas pela janela de configurações.</summary>
+    public class SettingsContext
+    {
+        public List<string> ConduitTypes { get; set; } = new();
+        public List<string> LevelNames { get; set; } = new();
+        public Dictionary<string, List<string>> TagOptions { get; set; } = new();
     }
 }

@@ -26,7 +26,8 @@ namespace RafaelElectrical.Commands
             Document doc = uidoc.Document;
             if (doc.IsFamilyDocument) return Result.Cancelled;
 
-            var window = new IdentifyWindow();
+            AutoIdOptions saved = AutoIdOptions.Read(doc);
+            var window = new IdentifyWindow(saved);
             new WindowInteropHelper(window).Owner = commandData.Application.MainWindowHandle;
             if (window.ShowDialog() != true) return Result.Cancelled;
 
@@ -92,6 +93,21 @@ namespace RafaelElectrical.Commands
                 }
                 doc.Regenerate();
 
+                if (window.AutoUpdate || saved?.Enabled == true)
+                {
+                    try
+                    {
+                        new AutoIdOptions
+                        {
+                            Enabled = window.AutoUpdate,
+                            Pattern = window.Pattern,
+                            IncludeDevices = window.IncludeDevices,
+                            FillLevel = window.FillLevel,
+                        }.Write(doc);
+                    }
+                    catch (Exception ex) { notes.Add("Não foi possível gravar a identificação automática no projeto: " + ex.Message); }
+                }
+
                 var deviceSeen = new HashSet<ElementId>();
                 foreach (ElectricalSystem c in circuits)
                 {
@@ -124,7 +140,9 @@ namespace RafaelElectrical.Commands
             {
                 MainInstruction = $"{circuitCount} circuito(s) e {deviceCount} dispositivo(s) identificados em {panels.Count} quadro(s).",
                 MainContent = $"Parâmetros: {SharedParameters.IdentificationName}" + (window.FillLevel ? $" e {SharedParameters.LevelName}" : "") +
-                              " (grupo Dados de identidade). Use-os nas suas tags e tabelas.",
+                              " (grupo Dados de identidade). Use-os nas suas tags e tabelas." +
+                              (window.AutoUpdate ? "\n\nIdentificação automática ligada neste projeto: os circuitos se atualizam sozinhos ao mudar."
+                                  : saved?.Enabled == true ? "\n\nIdentificação automática desligada neste projeto." : ""),
             };
             if (notes.Count > 0) report.ExpandedContent = string.Join("\n", notes.Take(50));
             report.Show();
@@ -139,7 +157,7 @@ namespace RafaelElectrical.Commands
             try { return p.Set(value ?? string.Empty); } catch (Exception) { return false; }
         }
 
-        private static string LevelName(Document doc, Element e)
+        internal static string LevelName(Document doc, Element e)
         {
             if (e == null) return null;
             ElementId levelId = e.LevelId;

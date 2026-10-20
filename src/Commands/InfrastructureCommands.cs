@@ -104,11 +104,21 @@ namespace RafaelElectrical.Commands
     /// <summary>Grava o resultado do roteamento nos parâmetros RE_.</summary>
     internal static class InfraWriter
     {
-        public static void Write(Document doc, RoutingService routing)
+        public static void Write(Document doc, RoutingService routing, bool clearUnused = false)
         {
             double omit = DimensioningSettings.Load().OmitSectionInTags;
             string omitText = omit > 0 ? $" #{Nbr5410.FormatSection(omit)} mm²" : null;
             Dictionary<ElementId, ElectricalSystem> circuits = routing.Routes.ToDictionary(r => r.Circuit.Id, r => r.Circuit);
+
+            // trechos que ficaram sem circuitos: limpa os dados antigos
+            foreach (ElementId id in routing.Segments.Where(s => clearUnused && !routing.CircuitsBySegment.ContainsKey(s)))
+            {
+                Element seg = doc.GetElement(id);
+                if (string.IsNullOrEmpty(SharedParameters.GetText(seg, SharedParameters.RouteCircuits))) continue;
+                SharedParameters.SetText(seg, SharedParameters.RouteCircuits, "");
+                SharedParameters.SetNumber(seg, SharedParameters.RouteCount, 0);
+                SharedParameters.SetText(seg, SharedParameters.RouteCables, "");
+            }
 
             foreach (var kv in routing.CircuitsBySegment)
             {
@@ -349,7 +359,8 @@ namespace RafaelElectrical.Commands
                     new List<CheckItem>(), "OK")
                 .AllowEmpty()
                 .WithCombo("Tipo:", types)
-                .WithText("Altura do trecho horizontal em relação ao nível (m):", "2,80");
+                .WithText("Altura do trecho horizontal em relação ao nível (m):",
+                    DimensioningSettings.Load().InfraHeight(plan.GenLevel.Name).ToString("0.00", System.Globalization.CultureInfo.GetCultureInfo("pt-BR")));
             RevitHelpers.ShowOwned(window, data);
             if (window.ShowDialog() != true) return Result.Cancelled;
 
@@ -362,13 +373,18 @@ namespace RafaelElectrical.Commands
             bool tray = type is CableTrayType;
 
             var points = new List<XYZ>();
+            var plugs = new List<Connector>();   // conector livre de eletroduto/eletrocalha da família (ou null)
             while (true)
             {
                 try
                 {
                     Reference r = uidoc.Selection.PickObject(ObjectType.Element, $"Clique no {points.Count + 1}º elemento do caminho (ESC termina)");
-                    XYZ p = RevitHelpers.PointOf(doc.GetElement(r));
-                    if (p != null) points.Add(p);
+                    Element picked = doc.GetElement(r);
+                    Connector plug = FreeInfraConnector(picked, tray);
+                    XYZ p = plug?.Origin ?? RevitHelpers.PointOf(picked);
+                    if (p == null) continue;
+                    points.Add(p);
+                    plugs.Add(plug);
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException) { break; }
             }
@@ -376,13 +392,16 @@ namespace RafaelElectrical.Commands
 
             Level level = plan.GenLevel;
             double h = level.ProjectElevation + RevitHelpers.M(heightM);
-            int created = 0, fittingFail = 0;
+            int created = 0, fittingFail = 0, plugged = 0;
+            WarningSwallower warnings;
 
             using (var t = new Transaction(doc, "Construir infraestrutura"))
             {
                 t.Start();
+                warnings = WarningSwallower.Attach(t);
                 MEPCurve previousHorizontal = null;
                 MEPCurve firstRiser = Segment(doc, tray, type.Id, level.Id, points[0], new XYZ(points[0].X, points[0].Y, h), ref created);
+                if (Plug(firstRiser, plugs[0])) plugged++;
 
                 for (int i = 1; i < points.Count; i++)
                 {
@@ -405,6 +424,7 @@ namespace RafaelElectrical.Commands
 
                     // fim do trecho: descida até o dispositivo
                     if (drop != null) fittingFail += Connect(doc, last, drop, b) ? 0 : 1;
+                    if (Plug(drop ?? last, plugs[i])) plugged++;
                     previousHorizontal = last;
                 }
                 t.Commit();
@@ -412,6 +432,8 @@ namespace RafaelElectrical.Commands
 
             TaskDialog.Show("Construir infraestrutura",
                 $"{created} trecho(s) criado(s)." +
+                (plugged > 0 ? $"\n{plugged} ligado(s) direto no conector da família." : "") +
+                (warnings.Discarded > 0 ? $"\n{warnings.Discarded} aviso(s) do Revit descartado(s)." : "") +
                 (fittingFail > 0 ? $"\n{fittingFail} conexão(ões) não puderam ser feitas automaticamente (verifique as conexões do tipo em Preferências de roteamento)." : ""));
             return Result.Succeeded;
         }
@@ -427,7 +449,7 @@ namespace RafaelElectrical.Commands
         }
 
         /// <summary>Liga dois trechos no ponto comum (curva; se já houver conexão no ponto, tenta tê).</summary>
-        private static bool Connect(Document doc, MEPCurve a, MEPCurve b, XYZ at)
+        internal static bool Connect(Document doc, MEPCurve a, MEPCurve b, XYZ at)
         {
             Connector ca = Nearest(a, at), cb = Nearest(b, at);
             if (ca == null || cb == null) return false;
@@ -467,6 +489,42 @@ namespace RafaelElectrical.Commands
                     return false;
                 }
                 doc.Create.NewElbowFitting(ca, cb);
+                return true;
+            }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>
+        /// Conector livre de eletroduto (redondo) ou eletrocalha (retangular) de uma família, preferindo o vertical
+        /// (caixa no forro/piso, quadro). Null se a família não tiver.
+        /// </summary>
+        private static Connector FreeInfraConnector(Element e, bool tray)
+        {
+            ConnectorManager cm = (e as FamilyInstance)?.MEPModel?.ConnectorManager;
+            if (cm == null) return null;
+            ConnectorProfileType shape = tray ? ConnectorProfileType.Rectangular : ConnectorProfileType.Round;
+            try
+            {
+                return cm.Connectors.Cast<Connector>()
+                    .Where(c => c.Domain == Domain.DomainCableTrayConduit && !c.IsConnected && c.Shape == shape)
+                    .OrderByDescending(c => Math.Abs(c.CoordinateSystem.BasisZ.Z))
+                    .FirstOrDefault();
+            }
+            catch (Exception) { return null; }
+        }
+
+        /// <summary>Liga a ponta do trecho ao conector da família, se coincidirem em posição e direção.</summary>
+        private static bool Plug(MEPCurve curve, Connector plug)
+        {
+            if (curve == null || plug == null) return false;
+            try
+            {
+                Connector end = Nearest(curve, plug.Origin);
+                if (end == null || end.IsConnected || plug.IsConnected) return false;
+                if (end.Origin.DistanceTo(plug.Origin) > RevitHelpers.M(0.01)) return false;
+                XYZ dir = (curve.Location as LocationCurve)?.Curve is Line line ? line.Direction : null;
+                if (dir == null || Math.Abs(dir.DotProduct(plug.CoordinateSystem.BasisZ)) < 0.99) return false;
+                end.ConnectTo(plug);
                 return true;
             }
             catch (Exception) { return false; }

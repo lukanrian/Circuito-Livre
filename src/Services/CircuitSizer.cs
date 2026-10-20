@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 
 namespace RafaelElectrical.Services
@@ -7,6 +7,10 @@ namespace RafaelElectrical.Services
     public class CircuitInput
     {
         public Autodesk.Revit.DB.ElementId Id { get; set; }
+        public string PanelKey { get; set; }
+        public string FeedsPanelKey { get; set; }
+        public double? ExistingSectionMm2 { get; set; }
+        public bool ExistingSizingValid { get; set; }
         public string Panel { get; set; }
         public string Number { get; set; }
         public string LoadName { get; set; }
@@ -46,7 +50,7 @@ namespace RafaelElectrical.Services
         public string Grouping => Input.IgnoreGrouping ? "Não"
             : Input.FcaOverride.HasValue ? $"{Input.GroupingOverride} (FCA {Input.FcaOverride:0.00})"
             : Input.GroupingOverride.HasValue ? $"{Input.GroupingOverride} (real)" : "padrão";
-        public double TotalDropPercent => Math.Round(Input.UpstreamDropPercent + VoltageDropPercent, 2);
+        public double TotalDropPercent => Input.UpstreamDropPercent + VoltageDropPercent;
         public double NeutralMm2 { get; set; }
         public string LengthSource => Input.RealLength ? "infraestrutura" : "Revit";
 
@@ -70,10 +74,19 @@ namespace RafaelElectrical.Services
     /// </summary>
     public static class CircuitSizer
     {
-        public static SizingResult Size(CircuitInput c, DimensioningSettings s)
+        public static SizingResult Size(CircuitInput c, DimensioningSettings s, double? fixedSection = null)
         {
             var r = new SizingResult { Input = c };
 
+            try { s.ValidateForSizing(); }
+            catch (ArgumentException ex) { r.Status = ex.Message; return r; }
+            if (!double.IsFinite(c.CurrentA) || c.CurrentA < 0 || !double.IsFinite(c.LengthM) || c.LengthM < 0 ||
+                !double.IsFinite(c.VoltageV) || c.Poles < 1 || c.Poles > 3 ||
+                (c.FcaOverride.HasValue && (!double.IsFinite(c.FcaOverride.Value) || c.FcaOverride <= 0 || c.FcaOverride > 1)) ||
+                (c.GroupingOverride.HasValue && c.GroupingOverride < 1) ||
+                !double.IsFinite(c.UpstreamDropPercent) || c.UpstreamDropPercent < 0 ||
+                (c.DropLimitOverride.HasValue && (!double.IsFinite(c.DropLimitOverride.Value) || c.DropLimitOverride <= 0)))
+            { r.Status = "Dados elétricos inválidos"; return r; }
             if (c.VoltageV <= 0)
             {
                 r.Status = "Sem tensão definida";
@@ -86,7 +99,9 @@ namespace RafaelElectrical.Services
                 : c.FcaOverride ?? s.GroupingFactor(GroupingKind.Closed, c.GroupingOverride ?? s.GroupedCircuits);
 
             double ib = Math.Max(c.CurrentA, 0);
-            double minSection = c.IsLighting ? s.MinSectionLighting : s.MinSectionPower;
+            CircuitClassRule rule = s.ClassOf(c.LoadName);
+            double minSection = Math.Max(c.IsLighting ? s.MinSectionLighting : s.MinSectionPower, rule?.MinimumSectionMm2 ?? 0);
+            double minBreaker = Math.Max(ib, rule?.MinimumBreakerA ?? 0);
             double dropFactor = c.Poles >= 3 ? Math.Sqrt(3) : 2.0;
             double dropLimit = c.DropLimitOverride ?? s.MaxVoltageDropPercent;
 
@@ -95,7 +110,7 @@ namespace RafaelElectrical.Services
             double Iz(double section) =>
                 Nbr5410.Ampacity(s.Method, s.Insulation, section, loaded) * fct * fca;
 
-            double[] candidates = Nbr5410.Sections.Where(x => x >= minSection - 1e-9 && x <= s.MaxSection + 1e-9).ToArray();
+            double[] candidates = Nbr5410.Sections.Where(x => x >= minSection - 1e-9 && x <= s.MaxSection + 1e-9 && (!fixedSection.HasValue || x == fixedSection.Value)).ToArray();
             string maxText = Nbr5410.FormatSection(s.MaxSection);
 
             int breaker;
@@ -103,7 +118,7 @@ namespace RafaelElectrical.Services
             if (s.BreakerMethod == BreakerMethod.DesignCurrent)
             {
                 // In ≥ Ib e Iz ≥ In
-                breaker = Nbr5410.BreakerRatings.FirstOrDefault(b => b >= ib - 1e-9);
+                breaker = Nbr5410.BreakerRatings.FirstOrDefault(b => b >= minBreaker - 1e-9);
                 if (breaker == 0) { r.Status = "Corrente acima dos disjuntores da lista"; return r; }
                 sAmp = candidates.FirstOrDefault(x => Iz(x) >= breaker);
             }
@@ -116,7 +131,7 @@ namespace RafaelElectrical.Services
                 {
                     double iz = Iz(x);
                     if (iz < ib) continue;
-                    int b = Nbr5410.BreakerRatings.Where(v => v >= ib - 1e-9 && v <= iz + 1e-9).DefaultIfEmpty(0).Max();
+                    int b = Nbr5410.BreakerRatings.Where(v => v >= minBreaker - 1e-9 && v <= iz + 1e-9).DefaultIfEmpty(0).Max();
                     if (b == 0) continue;
                     sAmp = x;
                     breaker = b;
@@ -140,7 +155,7 @@ namespace RafaelElectrical.Services
             r.NeutralMm2 = c.Poles >= 3 && s.ReducedNeutral ? Nbr5410.ReducedNeutral(section) : section;
             r.BreakerA = breaker;
             r.IzA = Math.Round(Iz(section), 1);
-            r.VoltageDropPercent = Math.Round(Drop(section), 2);
+            r.VoltageDropPercent = Drop(section);
             r.Criterion = section <= minSection + 1e-9 ? "Seção mínima"
                         : sDrop > sAmp ? (c.DropLimitOverride.HasValue ? "Queda de tensão total" : "Queda de tensão")
                         : "Capacidade de corrente";

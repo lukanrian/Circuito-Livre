@@ -9,32 +9,34 @@ com dimensionamento pela **ABNT NBR 5410**. Feito em C# (.NET 8 / .NET 10, WPF),
 > o projeto e emite a ART/RRT. As tabelas da NBR 5410 foram digitadas a partir da norma e precisam ser conferidas com
 > a edição vigente. O software é distribuído **sem nenhuma garantia** (veja a [licença](LICENSE)).
 
-> 🚧 **Versão 0.1.0 beta — em desenvolvimento.** Várias funções ainda não foram testadas em projeto real. Relate o que encontrar nas [issues](../../issues).
+> 🚧 **Versão 0.2.0 beta — em desenvolvimento.** Várias funções ainda não foram testadas em projeto real. Relate o que encontrar nas [issues](../../issues).
 
 ## Funções
 
 | Painel | Comandos |
 |---|---|
-| **Configuração** | Configurações: temperatura, seções mínima/máxima, cores dos cabos, fatores de agrupamento (Tabela 42) por tipo de infraestrutura, taxas de ocupação, método do disjuntor, queda de tensão total 5%/7%, neutro reduzido, cabos de telecom, DPS no unifilar, exportar/importar `.json` |
-| **Coordenação** | Copiar Níveis (de vínculo RVT/IFC ou de arquivo `.ifc`), criando para cada nível as vistas escolhidas como modelo (mesma pasta do navegador, modelo de vista e faixa de vista); Vínculos: nomear, copiar entre pavimentos, configurar vistas vinculadas |
-| **Lançamento** | Lançar Pontos (luminárias, tomadas, interruptores, telecom) com altura e potência; Copiar / Copiar para Níveis / Rotacionar / Espelhar levando os circuitos |
-| **Circuitos** | Criar Circuitos (força e telecom), Renumerar (várias ordens), Balancear Fases (A/B/C, com prévia antes/depois), Retornos de interruptores (letras a, b, c… em `RE_Retorno`), Preencher Identificação, Relatório de Cargas |
-| **Dimensionamento** | Dimensionar Instalação (NBR 5410: Ib ≤ In ≤ Iz, FCT, FCA, seção mínima, queda de tensão parcial e total), Centro de Cargas, Desconsiderar Agrupamento |
-| **Infraestrutura** | Construir eletrodutos/eletrocalhas, Atualizar Quadros (roteamento pela infraestrutura: comprimento e agrupamento reais), Dimensionar Infraestrutura (taxa de ocupação + vista 3D colorida), Adicionar Suportes |
-| **Documentação** | Criar Identificadores, Diagrama Unifilar, Relatório de Fiação (CSV), Tabelas de Fiação, Memorial Descritivo e de Cálculo (`.docx`), Compor Pranchas |
-| **Ferramentas** | Inspecionar Parâmetros, Reportar Erro (abre uma issue já preenchida com as versões do Revit e do plugin) |
+| **Configuração** | Configurações: geral (retornos, ordem da legenda), fiação, agrupamento (Tab. 42), ocupação, dimensionamento (método do disjuntor, queda total, DR, sobrecarga, classes de circuito com curva/neutro/terra), conduítes (diâmetro padrão por tipo), bandejas, telecom, identificadores por categoria, cota do conduíte por nível, concessionária (padrão de entrada, fatores de demanda, curto-circuito), documentação (terra, tags, multifilar, proteção, DPS); exportar/importar `.json` ou guardar no projeto |
+| **Identificadores** | Criar por Seleção (tipo por categoria), de Dimensão (diâmetro fora do padrão), de Infra. de Nível (SOBE / DESCE / PASSA) |
+| **Coordenação** | Nomear / Copiar / Configurar Vínculos, Importar Cargas (equipamentos e quadros vinculados), Importar Diagramas, Importar Identificadores, Copiar Níveis (RVT/IFC) |
+| **Modelagem e Documentação** | Adicionar Luminárias (malha), Tomadas (NBR 5410, espaçamento ou quantidade), Interruptores (pela porta), Cotas; Construir Conduítes / Bandejas, Desvio, Suportes, Uniões, Deslocar Trecho; Central de Documentação; Identificadores de fiação com Ajustar, Visibilidade pré-definida/personalizada e Baseado na Vista; Ajustar Rota (rotas alternativas para reduzir agrupamento); Substituir por Legenda, Vista de Legenda, Reiniciar, Auto; Legenda de Pontos; Caminho do Circuito; Dimensionar Infraestrutura |
+| **Utilitários Elétricos** | Centro de Cargas (seleção / quadro); Dimensionar Instalação (NBR 5410), Dimensionar Projeto (demanda, curto-circuito, padrão de entrada), Descons. Agrupamento, Balancear Fases, Retornos; Atualizar Quadros |
+| **Utilitários de Circuitos** | Criar Circuitos; Ordenar Circuitos por dispositivos / quadro / espaços; Propriedades de Circuitos (identificação automática) |
+| **Relatórios** | Relatório de Fiação e de Cargas (Excel), Tabelas de Fiação, Diagramas (unifilar com DR/DPS, multifilar, detalhe da proteção), Memorial Descritivo e de Cálculo (`.docx`) |
+| **Pranchas** | Compor Pranchas |
+| **Modificar com Circuitos** | Copiar, Copiar para Níveis, Rotacionar, Espelhar por pontos ou por linha |
+| **Sobre** | Sobre, Reportar Erro, Inspecionar Parâmetros, Painel lateral com todos os comandos e busca |
 
 O plugin grava seus resultados em parâmetros compartilhados próprios, com prefixo `RE_`
 (ex.: `RE_Seção (mm²)`, `RE_Disjuntor (A)`, `RE_Queda total (%)`, `RE_Fiação`).
 
 ### Fluxo sugerido
-Configurações → Copiar Níveis → Lançar Pontos → Criar Circuitos → Renumerar → Construir Infraestrutura →
+Configurações → Copiar Níveis → Lançar Pontos → Criar Circuitos → Ordenar Circuitos → Construir Infraestrutura →
 Atualizar Quadros → Dimensionar Instalação → Dimensionar Infraestrutura → Atualizar Quadros →
 Preencher Identificação → Identificadores → Unifilar / Tabelas / Relatórios / Memorial → Compor Pranchas.
 
 ## Instalar (versão compilada)
 1. Baixe o `RafaelElectrical.bundle.zip` em **[Releases](../../releases)**.
-2. Extraia a pasta `RafaelElectrical.bundle` em `%APPDATA%\Autodesk\ApplicationPlugins`.
+2. Extraia todo o ZIP e execute `Instalar.ps1` no PowerShell, com o Revit fechado. Também é possível copiar a pasta `RafaelElectrical.bundle` para `%APPDATA%\Autodesk\ApplicationPlugins`.
 3. Abra o Revit: aparece a aba **RafaelElectrical**.
 
 Para desinstalar, apague essa pasta.
@@ -42,12 +44,12 @@ Para desinstalar, apague essa pasta.
 ## Compilar a partir do código
 Pré-requisitos (Windows):
 - Revit 2025, 2026 e/ou 2027 instalado (as DLLs da API são lidas de `C:\Program Files\Autodesk\Revit 20XX` e **não** fazem parte deste repositório);
-- [.NET 8 SDK](https://dotnet.microsoft.com/download) (Revit 2025/2026) e .NET 10 SDK (Revit 2027).
+- Para **compilar** o código: [.NET 8 SDK](https://dotnet.microsoft.com/download) (Revit 2025/2026) ou .NET 10 SDK (Revit 2027). Para **instalar o ZIP pronto**, não é necessário instalar o SDK.
 
 Passos:
 1. Feche o Revit.
 2. Rode `COMPILAR_E_INSTALAR.bat` (compila só para as versões instaladas e instala o bundle), ou
-   `powershell -ExecutionPolicy Bypass -File build.ps1` para só gerar `dist\RafaelElectrical.bundle` e o `.zip`.
+   `powershell -ExecutionPolicy Bypass -File build.ps1` para só gerar `dist\RafaelElectrical.bundle` e o `.zip`. Se o Revit 2026 não estiver instalado, passe `-Api2026Dir` apontando para as DLLs de referência 2026.
 
 ## Estrutura
 ```

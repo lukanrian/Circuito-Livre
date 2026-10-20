@@ -23,6 +23,10 @@
 
         <CheckBox x:Name="DevicesCheck" Content="Preencher também os dispositivos" IsChecked="True" Margin="0,10,0,0"/>
         <CheckBox x:Name="LevelCheck" Content="Preencher o nível (RE_Nível)" IsChecked="True" Margin="0,4,0,0"/>
+        <CheckBox x:Name="AutoCheck" Margin="0,10,0,0">
+            <TextBlock TextWrapping="Wrap" Width="430"
+                       Text="Manter atualizado automaticamente neste projeto: ao criar, renumerar ou mudar circuitos e ao renomear quadros (todos os quadros)."/>
+        </CheckBox>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="Preencher" Padding="14,4" Margin="0,0,6,0" IsDefault="True" Click="Ok_Click"/>

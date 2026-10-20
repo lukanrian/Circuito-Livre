@@ -23,6 +23,9 @@ namespace RafaelElectrical.Commands
     {
         private const double RowToleranceFt = 3.28084; // 1 m
 
+        /// <summary>Ordem já marcada ao abrir a janela (botões "por dispositivos", "por espaços").</summary>
+        protected virtual RenumberMode? Preset => null;
+
         private class AreaRef
         {
             public string Name;
@@ -61,7 +64,7 @@ namespace RafaelElectrical.Commands
                 }
 
                 // 2. Opções
-                var window = new RenumberWindow(panel.Name, circuits.Count);
+                var window = new RenumberWindow(panel.Name, circuits.Count, Preset);
                 new WindowInteropHelper(window).Owner = commandData.Application.MainWindowHandle;
                 if (window.ShowDialog() != true) return Result.Cancelled;
 

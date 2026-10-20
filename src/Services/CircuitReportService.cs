@@ -69,8 +69,23 @@ namespace RafaelElectrical.Services
         }
 
         /// <summary>Exporta em CSV com ';' e vírgula decimal, que abre direto no Excel em português.</summary>
+        public static void ExportXlsx(IEnumerable<CircuitRow> rows, string path)
+        {
+            var sheet = new List<IList<object>>
+            {
+                new object[] { "Quadro", "Circuito", "Descrição", "Tensão (V)", "Polos", "Pot. aparente (VA)", "Pot. ativa (W)", "Corrente (A)", "Disjuntor (A)", "Fiação", "Comprimento (m)", "Nº elementos" },
+            };
+            sheet.AddRange(rows.Select(r => (IList<object>)new object[]
+            {
+                r.Panel, r.Number, r.LoadName, Math.Round(r.VoltageV), r.Poles, Math.Round(r.ApparentLoadVA), Math.Round(r.TrueLoadW),
+                Math.Round(r.CurrentA, 2), Math.Round(r.RatingA), r.WireSize, Math.Round(r.LengthM, 2), r.ElementCount,
+            }));
+            new XlsxWriter().Sheet("Cargas", sheet).Save(path);
+        }
+
         public static void ExportCsv(IEnumerable<CircuitRow> rows, string path)
         {
+            if (path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)) { ExportXlsx(rows, path); return; }
             CultureInfo br = CultureInfo.GetCultureInfo("pt-BR");
             var sb = new StringBuilder();
             sb.AppendLine("Quadro;Circuito;Descrição;Tensão (V);Polos;Pot. aparente (VA);Pot. ativa (W);Corrente (A);Disjuntor (A);Fiação;Comprimento (m);Nº elementos");

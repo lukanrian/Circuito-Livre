@@ -3,6 +3,7 @@
 #       .\build.ps1 -Install    -> compila e instala em %APPDATA%\Autodesk\ApplicationPlugins
 param(
     [string[]]$Versions = @('2025', '2026', '2027'),
+    [string]$Api2026Dir,
     [switch]$Install
 )
 
@@ -32,6 +33,7 @@ New-Item -ItemType Directory -Force $bundle | Out-Null
 $built = @()
 foreach ($v in $Versions) {
     $revitDir = "C:\Program Files\Autodesk\Revit $v"
+    if ($v -eq '2026' -and -not (Test-Path "$revitDir\RevitAPI.dll") -and $Api2026Dir) { $revitDir = $Api2026Dir }
     if (-not (Test-Path "$revitDir\RevitAPI.dll")) {
         Write-Host "Revit $v não está instalado - pulando." -ForegroundColor DarkYellow
         continue
@@ -44,7 +46,7 @@ foreach ($v in $Versions) {
 
     Write-Host "`n=== Compilando para Revit $v ===" -ForegroundColor Cyan
     $outDir = Join-Path $root "build\bin\$v"
-    & dotnet build $proj -c Release "-p:RevitVersion=$v" -o $outDir -nologo -v:minimal
+    & dotnet build $proj -c Release "-p:RevitVersion=$v" "-p:RevitInstallDir=$revitDir" -o $outDir -nologo -v:minimal
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Falha ao compilar para Revit $v." -ForegroundColor Red
         continue
@@ -79,7 +81,7 @@ $components = ($built | ForEach-Object {
 
 $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
-<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Revit" Name="RafaelElectrical" AppVersion="0.1.0" ProductType="Application" ProductCode="$appId">
+<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Revit" Name="RafaelElectrical" AppVersion="0.2.0" ProductType="Application" ProductCode="$appId">
   <CompanyDetails Name="Rafael Matias" />
 $components
 </ApplicationPackage>
@@ -87,18 +89,12 @@ $components
 Set-Content -Path (Join-Path $bundle 'PackageContents.xml') -Value $xml -Encoding UTF8
 
 $zip = Join-Path $dist 'RafaelElectrical.bundle.zip'
+Copy-Item (Join-Path $root 'installer\Instalar.ps1') $dist -Force
+Copy-Item (Join-Path $root 'installer\LEIA-ME.txt') $dist -Force
 if (Test-Path $zip) { Remove-Item $zip -Force }
-Compress-Archive -Path $bundle -DestinationPath $zip
+Compress-Archive -Path $bundle, (Join-Path $dist 'Instalar.ps1'), (Join-Path $dist 'LEIA-ME.txt') -DestinationPath $zip
 
 Write-Host "`nBundle gerado: $bundle" -ForegroundColor Green
 Write-Host "Versões: $($built -join ', ')" -ForegroundColor Green
 
-if ($Install) {
-    $plugins = Join-Path $env:APPDATA 'Autodesk\ApplicationPlugins'
-    $target  = Join-Path $plugins 'RafaelElectrical.bundle'
-    New-Item -ItemType Directory -Force $plugins | Out-Null
-    if (Test-Path $target) { Remove-Item $target -Recurse -Force }
-    Copy-Item $bundle $plugins -Recurse
-    Write-Host "Instalado em: $target" -ForegroundColor Green
-    Write-Host 'Abra (ou reinicie) o Revit para ver a aba RafaelElectrical.' -ForegroundColor Green
-}
+if ($Install) { & (Join-Path $dist 'Instalar.ps1') }

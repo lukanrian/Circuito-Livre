@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using Autodesk.Revit.ApplicationServices;
@@ -59,6 +59,35 @@ namespace RafaelElectrical.Services
             "Letra(s) de retorno do interruptor e das luminárias comandadas (ex.: a, b).",
             new[] { BuiltInCategory.OST_LightingFixtures, BuiltInCategory.OST_LightingDevices });
 
+        /// <summary>Categorias de pontos que entram na legenda.</summary>
+        public static readonly BuiltInCategory[] LegendCategories =
+        {
+            BuiltInCategory.OST_ElectricalEquipment,
+            BuiltInCategory.OST_ElectricalFixtures,
+            BuiltInCategory.OST_LightingFixtures,
+            BuiltInCategory.OST_LightingDevices,
+            BuiltInCategory.OST_DataDevices,
+            BuiltInCategory.OST_CommunicationDevices,
+            BuiltInCategory.OST_TelephoneDevices,
+            BuiltInCategory.OST_SecurityDevices,
+            BuiltInCategory.OST_FireAlarmDevices,
+            BuiltInCategory.OST_NurseCallDevices,
+        };
+
+        public static readonly ParamDef Legend = new("RE_Legenda", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a04", SpecTypeId.String.Text,
+            "Número do tipo na legenda de pontos (para mostrar no identificador).", LegendCategories);
+
+        public static readonly ParamDef PanelDemand = new("RE_Demanda (VA)", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a06", SpecTypeId.Number,
+            "Demanda do quadro calculada pelo Dimensionar Projeto (VA).", new[] { BuiltInCategory.OST_ElectricalEquipment });
+        public static readonly ParamDef PanelIcc = new("RE_Icc (kA)", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a07", SpecTypeId.Number,
+            "Corrente de curto-circuito estimada no quadro (kA).", new[] { BuiltInCategory.OST_ElectricalEquipment });
+        public static readonly ParamDef PanelEntrance = new("RE_Padrão de entrada", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a08", SpecTypeId.String.Text,
+            "Categoria de atendimento / padrão de entrada (quadro geral).", new[] { BuiltInCategory.OST_ElectricalEquipment });
+
+        public static readonly ParamDef Origin = new("RE_Origem", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a05", SpecTypeId.String.Text,
+            "Equipamento de origem no vínculo (preenchido pelo Importar Cargas).",
+            new[] { BuiltInCategory.OST_ElectricalFixtures, BuiltInCategory.OST_ElectricalEquipment });
+
         // ---- dimensionamento (circuitos) ----
         public static readonly ParamDef Section = new("RE_Seção (mm²)", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a10", SpecTypeId.Number,
             "Seção do condutor de fase dimensionada (mm²).", CircuitsOnly);
@@ -96,6 +125,8 @@ namespace RafaelElectrical.Services
             "Cabos no trecho por circuito (para identificadores de fiação).", Infrastructure);
         public static readonly ParamDef RouteOccupancy = new("RE_Taxa de ocupação (%)", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a23", SpecTypeId.Number,
             "Taxa de ocupação do eletroduto (%).", Infrastructure);
+        public static readonly ParamDef LevelPass = new("RE_Passagem", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a27", SpecTypeId.String.Text,
+            "SOBE, DESCE ou PASSA: trecho vertical que vai para outro nível (preenchido por Identificadores de Infra de Nível).", Infrastructure);
         public static readonly ParamDef RealLength = new("RE_Comprimento real (m)", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a24", SpecTypeId.Number,
             "Comprimento do circuito pelo caminho na infraestrutura (m).", CircuitsOnly);
         public static readonly ParamDef RealGrouping = new("RE_Agrupamento", "4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1a25", SpecTypeId.Number,
@@ -108,13 +139,50 @@ namespace RafaelElectrical.Services
             Ensure(doc, RouteCircuits, RouteCount, RouteCables, RouteOccupancy, RealLength, RealGrouping, RealFca,
                 NeutralSection, TotalDrop, Section, ProtectionSection, Breaker, Current, VoltageDrop, Wiring, SizingStatus, IgnoreGrouping);
 
+        public static readonly ParamDef PanelIccStatus = new("RE_Verificação de curto", "9ea9fb6b-f73a-4cdf-8abd-d8a2c58b10f5", SpecTypeId.String.Text,
+            "Indica se RE_Icc foi estimado; zero com situação não verificada não representa corrente de curto nula.", new[] { BuiltInCategory.OST_ElectricalEquipment });
+
+        public static bool HasValidSizing(Element e)
+        {
+            string status = e?.get_Parameter(SizingStatus.Guid)?.AsString();
+            return status != null && status.StartsWith("OK", StringComparison.Ordinal) && !status.Contains("sem comprimento");
+        }
+
+        private static void RequireUsableSizing(Element e, ParamDef d)
+        {
+            if (d != Section && d != ProtectionSection && d != NeutralSection && d != Breaker &&
+                d != VoltageDrop && d != TotalDrop && d != Wiring) return;
+            string status = e?.get_Parameter(SizingStatus.Guid)?.AsString();
+            if (!string.IsNullOrWhiteSpace(status) && !status.StartsWith("OK", StringComparison.Ordinal))
+                throw new InvalidOperationException($"Circuito {e.Id}: dimensionamento reprovado. Execute Dimensionar antes de usar os resultados.");
+        }
+
+        public static bool WriteSizingResult(Element e, SizingResult r)
+        {
+            bool ok = SetText(e, SizingStatus, r.Ok ? $"{r.Status} — {r.Criterion}" : r.Status);
+            ok &= SetNumber(e, Current, double.IsFinite(r.CurrentA) ? Math.Round(r.CurrentA, 2) : 0);
+            ok &= SetNumber(e, Section, r.Ok ? r.SectionMm2 : 0);
+            ok &= SetNumber(e, ProtectionSection, r.Ok ? r.ProtectionMm2 : 0);
+            ok &= SetNumber(e, NeutralSection, r.Ok ? r.NeutralMm2 : 0);
+            ok &= SetNumber(e, Breaker, r.Ok ? r.BreakerA : 0);
+            ok &= SetNumber(e, VoltageDrop, r.Ok ? r.VoltageDropPercent : 0);
+            ok &= SetNumber(e, TotalDrop, r.Ok ? r.TotalDropPercent : 0);
+            ok &= SetText(e, Wiring, r.Ok ? r.Wiring : "");
+            return ok;
+        }
+
         public static double? GetNumber(Element e, ParamDef d)
         {
+            RequireUsableSizing(e, d);
             Parameter p = e?.get_Parameter(d.Guid);
             return p != null && p.HasValue ? p.AsDouble() : (double?)null;
         }
 
-        public static string GetText(Element e, ParamDef d) => e?.get_Parameter(d.Guid)?.AsString();
+        public static string GetText(Element e, ParamDef d)
+        {
+            RequireUsableSizing(e, d);
+            return e?.get_Parameter(d.Guid)?.AsString();
+        }
 
         // compatibilidade com o comando de identificação
         public static Guid IdentificationGuid => Identification.Guid;
@@ -184,14 +252,14 @@ namespace RafaelElectrical.Services
         {
             Parameter p = e?.get_Parameter(d.Guid);
             if (p == null || p.IsReadOnly) return false;
-            try { return p.Set(value ?? string.Empty); } catch (Exception) { return false; }
+            try { return p.AsString() == (value ?? string.Empty) || p.Set(value ?? string.Empty); } catch (Exception) { return false; }
         }
 
         public static bool SetNumber(Element e, ParamDef d, double value)
         {
             Parameter p = e?.get_Parameter(d.Guid);
             if (p == null || p.IsReadOnly) return false;
-            try { return p.Set(value); } catch (Exception) { return false; }
+            try { return double.IsFinite(value) && ((p.HasValue && p.AsDouble() == value) || p.Set(value)); } catch (Exception) { return false; }
         }
 
         public static bool SetFlag(Element e, ParamDef d, bool value)

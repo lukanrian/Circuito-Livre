@@ -38,6 +38,9 @@ namespace RafaelElectrical.Commands
 
         private static readonly BuiltInCategory[] InfraCategories = { BuiltInCategory.OST_Conduit, BuiltInCategory.OST_CableTray };
 
+        /// <summary>Opção já escolhida pelo botão (null pergunta).</summary>
+        protected virtual TaskDialogResult? Preset => null;
+
         public Result Execute(ExternalCommandData data, ref string message, ElementSet elements)
         {
             UIDocument uidoc = data.Application.ActiveUIDocument;
@@ -57,7 +60,7 @@ namespace RafaelElectrical.Commands
                 "Use uma família de identificador de eletroduto que mostre o parâmetro RE_Cabos ou RE_Circuitos.");
 
             List<Element> targets;
-            switch (dialog.Show())
+            switch (Preset ?? dialog.Show())
             {
                 case TaskDialogResult.CommandLink1:
                     try
@@ -87,6 +90,7 @@ namespace RafaelElectrical.Commands
             int created = 0;
             var failedCategories = new HashSet<string>();
             double off = RevitHelpers.M(0.25) * Math.Max(1, view.Scale / 50.0);
+            DimensioningSettings cfgTags = DimensioningSettings.Load();
 
             using (var t = new Transaction(doc, "Criar identificadores"))
             {
@@ -97,8 +101,12 @@ namespace RafaelElectrical.Commands
                     if (p == null) continue;
                     try
                     {
-                        IndependentTag.Create(doc, view.Id, new Reference(e), false, TagMode.TM_ADDBY_CATEGORY,
-                            TagOrientation.Horizontal, p + new XYZ(off, off, 0));
+                        ElementId tagType = TagCatalog.Configured(doc, e, cfgTags);
+                        if (tagType != null)
+                            IndependentTag.Create(doc, tagType, view.Id, new Reference(e), false, TagOrientation.Horizontal, p + new XYZ(off, off, 0));
+                        else
+                            IndependentTag.Create(doc, view.Id, new Reference(e), false, TagMode.TM_ADDBY_CATEGORY,
+                                TagOrientation.Horizontal, p + new XYZ(off, off, 0));
                         created++;
                     }
                     catch (Exception) { failedCategories.Add(e.Category.Name); }
@@ -194,8 +202,22 @@ namespace RafaelElectrical.Commands
                 }
             }
 
-            var dialog = new SaveFileDialog { Filter = "CSV (Excel) (*.csv)|*.csv", FileName = "Relatorio_Fiacao.csv", Title = "Salvar relatório de fiação" };
+            var dialog = new SaveFileDialog { Filter = "Excel (*.xlsx)|*.xlsx|CSV (*.csv)|*.csv", FileName = "Relatorio_Fiacao.xlsx", Title = "Salvar relatório de fiação" };
             if (dialog.ShowDialog() != true) return Result.Cancelled;
+
+            if (dialog.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                string ColorX(string role) => colors.TryGetValue(role, out string v) ? v : "";
+                var byPanel = new List<IList<object>> { new object[] { "Quadro", "Função", "Cabo", "Cor", "Comprimento (m)" } };
+                byPanel.AddRange(totals.Select(kv => (IList<object>)new object[] { kv.Key.Panel, kv.Key.Role, kv.Key.Cable, ColorX(kv.Key.Role), Math.Round(kv.Value, 1) }));
+                var overall = new List<IList<object>> { new object[] { "Função", "Cabo", "Cor", "Comprimento (m)" } };
+                overall.AddRange(totals.GroupBy(kv => (kv.Key.Role, kv.Key.Cable)).OrderBy(g => g.Key.Role).ThenBy(g => g.Key.Cable)
+                    .Select(g => (IList<object>)new object[] { g.Key.Role, g.Key.Cable, ColorX(g.Key.Role), Math.Round(g.Sum(x => x.Value), 1) }));
+                new XlsxWriter().Sheet("Por quadro", byPanel).Sheet("Total geral", overall).Save(dialog.FileName);
+                TaskDialog.Show("Relatório de fiação", $"Relatório exportado (folga {extra:0.#} %)." +
+                    (noLength > 0 ? $"\n{noLength} circuito(s) sem comprimento ficaram de fora (rode o Atualizar Quadros)." : ""));
+                return Result.Succeeded;
+            }
 
             CultureInfo br = CultureInfo.GetCultureInfo("pt-BR");
             string Color(string role) => colors.TryGetValue(role, out string v) ? v : "";
@@ -282,106 +304,4 @@ namespace RafaelElectrical.Commands
         }
     }
 
-    // =====================================================================================
-    //  Diagrama unifilar
-    // =====================================================================================
-
-    /// <summary>Gera o diagrama unifilar de cada quadro selecionado numa vista de desenho (linhas e textos).</summary>
-    [Transaction(TransactionMode.Manual)]
-    public class SingleLineDiagramCommand : IExternalCommand
-    {
-        public Result Execute(ExternalCommandData data, ref string message, ElementSet elements)
-        {
-            UIDocument uidoc = data.Application.ActiveUIDocument;
-            if (uidoc == null) return Result.Cancelled;
-            Document doc = uidoc.Document;
-
-            HashSet<ElementId> panelIds = PanelScope.Ask(uidoc, "Diagrama unifilar");
-            if (panelIds == null) return Result.Cancelled;
-            List<FamilyInstance> panels = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
-                .Where(p => CircuitDeviceFilter.IsPanel(p) && (panelIds.Count == 0 || panelIds.Contains(p.Id))).ToList();
-
-            ViewFamilyType draftingType = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
-                .FirstOrDefault(v => v.ViewFamily == ViewFamily.Drafting);
-            if (draftingType == null || panels.Count == 0) return Result.Cancelled;
-
-            ElementId textType = doc.GetDefaultElementTypeId(ElementTypeGroup.TextNoteType);
-            CultureInfo br = CultureInfo.GetCultureInfo("pt-BR");
-            DimensioningSettings cfg = DimensioningSettings.Load();
-            ViewDrafting last = null;
-            int count = 0;
-
-            using (var t = new Transaction(doc, "Diagrama unifilar"))
-            {
-                t.Start();
-                foreach (FamilyInstance panel in panels)
-                {
-                    List<ElectricalSystem> circuits = new FilteredElementCollector(doc).OfClass(typeof(ElectricalSystem)).Cast<ElectricalSystem>()
-                        .Where(c => c.BaseEquipment?.Id == panel.Id && c.SystemType == ElectricalSystemType.PowerCircuit)
-                        .OrderBy(c => c.StartSlot).ToList();
-                    if (circuits.Count == 0) continue;
-
-                    ViewDrafting view = ViewDrafting.Create(doc, draftingType.Id);
-                    view.Scale = 50;
-                    try { view.Name = $"RE - Unifilar {panel.Name}"; } catch (Exception) { view.Name = $"RE - Unifilar {panel.Name} {panel.Id}"; }
-
-                    double s = RevitHelpers.M(0.6);   // espaçamento entre circuitos
-                    double busX = 0, lineEnd = RevitHelpers.M(3.0);
-                    double total = circuits.Sum(c => RevitHelpers.ToM(0) + UnitUtils.ConvertFromInternalUnits(c.ApparentLoad, UnitTypeId.VoltAmperes));
-
-                    Line(doc, view, new XYZ(busX, s, 0), new XYZ(busX, -s * circuits.Count, 0));
-                    Line(doc, view, new XYZ(busX, s, 0), new XYZ(busX, s * 2.5, 0));
-                    Breaker(doc, view, new XYZ(busX, s * 1.6, 0), vertical: true);
-                    string panelName = panel.get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_NAME)?.AsString() ?? panel.Name;
-                    TextNote.Create(doc, view.Id, new XYZ(busX + RevitHelpers.M(0.3), s * 3.2, 0),
-                        $"QUADRO {panelName} — carga instalada {total.ToString("N0", br)} VA", textType);
-                    if (cfg.DiagramUseDps)
-                    {
-                        // DPS ligado ao barramento, descendo para a terra
-                        double dx = -RevitHelpers.M(1.0), dy = s * 0.5;
-                        Line(doc, view, new XYZ(busX, dy, 0), new XYZ(dx, dy, 0));
-                        Breaker(doc, view, new XYZ(dx, dy - RevitHelpers.M(0.3), 0), vertical: true);
-                        Line(doc, view, new XYZ(dx, dy, 0), new XYZ(dx, dy - RevitHelpers.M(0.15), 0));
-                        Line(doc, view, new XYZ(dx, dy - RevitHelpers.M(0.45), 0), new XYZ(dx, dy - RevitHelpers.M(0.7), 0));
-                        Line(doc, view, new XYZ(dx - RevitHelpers.M(0.15), dy - RevitHelpers.M(0.7), 0), new XYZ(dx + RevitHelpers.M(0.15), dy - RevitHelpers.M(0.7), 0));
-                        Line(doc, view, new XYZ(dx - RevitHelpers.M(0.09), dy - RevitHelpers.M(0.76), 0), new XYZ(dx + RevitHelpers.M(0.09), dy - RevitHelpers.M(0.76), 0));
-                        TextNote.Create(doc, view.Id, new XYZ(dx - RevitHelpers.M(2.6), dy - RevitHelpers.M(0.2), 0), cfg.DiagramDpsText, textType);
-                    }
-
-                    for (int i = 0; i < circuits.Count; i++)
-                    {
-                        ElectricalSystem c = circuits[i];
-                        double y = -s * i;
-                        Line(doc, view, new XYZ(busX, y, 0), new XYZ(lineEnd, y, 0));
-                        Breaker(doc, view, new XYZ(RevitHelpers.M(0.8), y, 0), vertical: false);
-
-                        double breaker = SharedParameters.GetNumber(c, SharedParameters.Breaker)
-                                         ?? UnitUtils.ConvertFromInternalUnits(c.get_Parameter(BuiltInParameter.RBS_ELEC_CIRCUIT_RATING_PARAM)?.AsDouble() ?? 0, UnitTypeId.Amperes);
-                        string wiring = SharedParameters.GetText(c, SharedParameters.Wiring) ?? "";
-                        double va = UnitUtils.ConvertFromInternalUnits(c.ApparentLoad, UnitTypeId.VoltAmperes);
-                        string text = $"C{c.CircuitNumber}  {breaker:0} A  {wiring}  {va.ToString("N0", br)} VA  {c.LoadName}";
-                        TextNote.Create(doc, view.Id, new XYZ(lineEnd + RevitHelpers.M(0.15), y + RevitHelpers.M(0.12), 0), text, textType);
-                    }
-                    last = view;
-                    count++;
-                }
-                t.Commit();
-            }
-
-            if (last != null) uidoc.ActiveView = last;
-            TaskDialog.Show("Diagrama unifilar", $"{count} diagrama(s) criado(s) em vistas de desenho \"RE - Unifilar ...\".");
-            return Result.Succeeded;
-        }
-
-        private static void Line(Document doc, View view, XYZ a, XYZ b) =>
-            doc.Create.NewDetailCurve(view, Autodesk.Revit.DB.Line.CreateBound(a, b));
-
-        /// <summary>Símbolo simples de disjuntor: um retângulo sobre a linha.</summary>
-        private static void Breaker(Document doc, View view, XYZ c, bool vertical)
-        {
-            double w = RevitHelpers.M(vertical ? 0.15 : 0.3) / 2, h = RevitHelpers.M(vertical ? 0.3 : 0.15) / 2;
-            XYZ p1 = c + new XYZ(-w, -h, 0), p2 = c + new XYZ(w, -h, 0), p3 = c + new XYZ(w, h, 0), p4 = c + new XYZ(-w, h, 0);
-            Line(doc, view, p1, p2); Line(doc, view, p2, p3); Line(doc, view, p3, p4); Line(doc, view, p4, p1);
-        }
-    }
 }

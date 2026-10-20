@@ -182,7 +182,8 @@ namespace RafaelElectrical.Commands
                         .Where(c => c.BaseEquipment?.Id == panel.Id && c.SystemType == ElectricalSystemType.PowerCircuit)
                         .OrderBy(c => c.StartSlot).ToList();
                     double installed = circuits.Sum(c => VA(c.ApparentLoad));
-                    double demand = VA(panel.get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_TOTALESTLOAD_PARAM)?.AsDouble() ?? 0);
+                    double demand = SharedParameters.GetNumber(panel, SharedParameters.PanelDemand)
+                                    ?? VA(panel.get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_TOTALESTLOAD_PARAM)?.AsDouble() ?? 0);
                     if (demand <= 0) demand = installed;
                     double factor = installed > 0 ? demand / installed : 1;
 

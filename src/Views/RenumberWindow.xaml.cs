@@ -12,10 +12,18 @@ namespace RafaelElectrical.Views
         public GeoOrder Geo { get; private set; }
         public int StartSlot { get; private set; } = 1;
 
-        public RenumberWindow(string panelName, int circuitCount)
+        public RenumberWindow(string panelName, int circuitCount, RenumberMode? preset = null)
         {
             InitializeComponent();
             HeaderText.Text = $"Quadro \"{panelName}\" — {circuitCount} circuito(s)";
+            switch (preset)
+            {
+                case RenumberMode.ByName: NameRadio.IsChecked = true; break;
+                case RenumberMode.ByLoad: LoadRadio.IsChecked = true; break;
+                case RenumberMode.ByClick: ClickRadio.IsChecked = true; break;
+                case RenumberMode.BySpaces: SpacesRadio.IsChecked = true; break;
+                case RenumberMode.ByPosition: GeoRadio.IsChecked = true; break;
+            }
         }
 
         private void Ok_Click(object sender, RoutedEventArgs e)

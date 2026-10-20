@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><PlatformTarget>x64</PlatformTarget><NoWarn>MSB3277</NoWarn></PropertyGroup>
+<ItemGroup>
+<Reference Include="RafaelElectrical"><HintPath>../../build/bin/2025/RafaelElectrical.dll</HintPath></Reference>
+<Reference Include="RevitAPI"><HintPath>C:/Program Files/Autodesk/Revit 2025/RevitAPI.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="RevitAPIUI"><HintPath>C:/Program Files/Autodesk/Revit 2025/RevitAPIUI.dll</HintPath><Private>true</Private></Reference>
+</ItemGroup></Project>

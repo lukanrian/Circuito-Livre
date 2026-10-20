@@ -10,10 +10,18 @@ namespace RafaelElectrical.Views
         public bool AllPanels { get; private set; }
         public bool IncludeDevices { get; private set; }
         public bool FillLevel { get; private set; }
+        public bool AutoUpdate { get; private set; }
 
-        public IdentifyWindow()
+        public IdentifyWindow(AutoIdOptions saved = null)
         {
             InitializeComponent();
+            if (saved != null)
+            {
+                if (!string.IsNullOrWhiteSpace(saved.Pattern)) PatternBox.Text = saved.Pattern;
+                DevicesCheck.IsChecked = saved.IncludeDevices;
+                LevelCheck.IsChecked = saved.FillLevel;
+                AutoCheck.IsChecked = saved.Enabled;
+            }
             UpdatePreview();
         }
 
@@ -36,6 +44,7 @@ namespace RafaelElectrical.Views
             AllPanels = AllRadio.IsChecked == true;
             IncludeDevices = DevicesCheck.IsChecked == true;
             FillLevel = LevelCheck.IsChecked == true;
+            AutoUpdate = AutoCheck.IsChecked == true;
             DialogResult = true;
         }
     }

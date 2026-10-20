@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -57,6 +57,9 @@ namespace RafaelElectrical.Services
         /// <summary>Tabela 40 — fator de correção de temperatura (ar para A–C, solo para D).</summary>
         public static double TemperatureFactor(InstallMethod method, Insulation insulation, double temperatureC)
         {
+            if (!Enum.IsDefined(method) || !Enum.IsDefined(insulation) ||
+                !double.IsFinite(temperatureC) || temperatureC < 10 || temperatureC > (method == InstallMethod.D ? 50 : 60))
+                throw new ArgumentException("Temperatura fora da tabela implementada: 10–50 °C no solo ou 10–60 °C no ar.");
             (double T, double F)[] table;
             if (method == InstallMethod.D)
                 table = insulation == Insulation.EPR90

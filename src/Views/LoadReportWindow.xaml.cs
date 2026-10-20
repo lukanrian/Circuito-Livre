@@ -51,8 +51,8 @@ namespace RafaelElectrical.Views
             var dialog = new SaveFileDialog
             {
                 Title = "Exportar relatório de cargas",
-                Filter = "CSV (Excel) (*.csv)|*.csv",
-                FileName = "Relatorio_Cargas.csv",
+                Filter = "Excel (*.xlsx)|*.xlsx|CSV (*.csv)|*.csv",
+                FileName = "Relatorio_Cargas.xlsx",
             };
             if (dialog.ShowDialog(this) != true) return;
 

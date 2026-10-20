@@ -23,6 +23,9 @@ namespace RafaelElectrical.Commands
             public bool AllowReference(Reference reference, XYZ position) => false;
         }
 
+        /// <summary>Abrangência já escolhida pelo botão (seleção ou quadro); null pergunta.</summary>
+        protected virtual TaskDialogResult? Preset => null;
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
@@ -50,7 +53,7 @@ namespace RafaelElectrical.Commands
 
             try
             {
-                switch (dialog.Show())
+                switch (Preset ?? dialog.Show())
                 {
                     case TaskDialogResult.CommandLink1:
                     {

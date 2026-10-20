@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Interop;
@@ -65,12 +65,13 @@ namespace RafaelElectrical.Commands
             }
 
             // 2. Circuitos de força
-            List<ElectricalSystem> circuits = new FilteredElementCollector(doc)
+            List<ElectricalSystem> allCircuits = new FilteredElementCollector(doc)
                 .OfClass(typeof(ElectricalSystem))
                 .Cast<ElectricalSystem>()
                 .Where(c => c.SystemType == ElectricalSystemType.PowerCircuit)
-                .Where(c => panelIds == null || (c.BaseEquipment != null && panelIds.Contains(c.BaseEquipment.Id)))
                 .ToList();
+            List<ElectricalSystem> circuits = allCircuits
+                .Where(c => panelIds == null || (c.BaseEquipment != null && panelIds.Contains(c.BaseEquipment.Id))).ToList();
 
             if (circuits.Count == 0)
             {
@@ -79,13 +80,14 @@ namespace RafaelElectrical.Commands
             }
 
             Dictionary<ElementId, ElectricalSystem> byId = circuits.ToDictionary(c => c.Id);
-            List<CircuitInput> inputs = circuits.Select(ToInput)
+            var context = allCircuits.Select(ToInput).ToList();
+            List<CircuitInput> inputs = context.Where(i => byId.ContainsKey(i.Id))
                 .OrderBy(i => i.Panel, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(i => FirstNumber(i.Number))
                 .ToList();
 
             // 3. Janela
-            var window = new DimensionWindow(inputs, DimensioningSettings.Load(), scope);
+            var window = new DimensionWindow(inputs, DimensioningSettings.Load(), scope, context);
             new WindowInteropHelper(window).Owner = commandData.Application.MainWindowHandle;
             window.ShowDialog();
             if (!window.ApplyRequested) return Result.Cancelled;
@@ -95,6 +97,7 @@ namespace RafaelElectrical.Commands
             using (var t = new Transaction(doc, "Dimensionar circuitos"))
             {
                 t.Start();
+                ProjectStorage.FlushSettings(doc);
                 try { SharedParameters.EnsureSizing(doc); }
                 catch (Exception ex)
                 {
@@ -108,19 +111,13 @@ namespace RafaelElectrical.Commands
                 {
                     if (!byId.TryGetValue(r.Input.Id, out ElectricalSystem c)) continue;
 
-                    SharedParameters.SetNumber(c, SharedParameters.Current, Math.Round(r.CurrentA, 2));
-                    SharedParameters.SetText(c, SharedParameters.SizingStatus,
-                        r.Ok ? $"{r.Status} — {r.Criterion}" : r.Status);
-
+                    if (!SharedParameters.WriteSizingResult(c, r))
+                    {
+                        t.RollBack();
+                        TaskDialog.Show("Dimensionar", "Não foi possível gravar ou invalidar todos os resultados. Nenhuma alteração aplicada.");
+                        return Result.Failed;
+                    }
                     if (!r.Ok) continue;
-
-                    SharedParameters.SetNumber(c, SharedParameters.Section, r.SectionMm2);
-                    SharedParameters.SetNumber(c, SharedParameters.ProtectionSection, r.ProtectionMm2);
-                    SharedParameters.SetNumber(c, SharedParameters.NeutralSection, r.NeutralMm2);
-                    SharedParameters.SetNumber(c, SharedParameters.TotalDrop, r.TotalDropPercent);
-                    SharedParameters.SetNumber(c, SharedParameters.Breaker, r.BreakerA);
-                    SharedParameters.SetNumber(c, SharedParameters.VoltageDrop, r.VoltageDropPercent);
-                    SharedParameters.SetText(c, SharedParameters.Wiring, r.Wiring);
                     written++;
 
                     if (window.Settings.UpdateRevitRating)
@@ -135,7 +132,7 @@ namespace RafaelElectrical.Commands
                         catch (Exception) { ratingFail++; }
                     }
                 }
-                t.Commit();
+                if (t.Commit() != TransactionStatus.Committed) return Result.Failed;
             }
 
             var report = new TaskDialog("Dimensionar")
@@ -166,14 +163,18 @@ namespace RafaelElectrical.Commands
             return new CircuitInput
             {
                 Id = c.Id,
+                PanelKey = c.BaseEquipment?.Id.ToString(),
+                FeedsPanelKey = fed?.Id.ToString(),
+                ExistingSectionMm2 = SharedParameters.HasValidSizing(c) ? SharedParameters.GetNumber(c, SharedParameters.Section) : null,
+                ExistingSizingValid = SharedParameters.HasValidSizing(c),
                 Panel = string.IsNullOrWhiteSpace(c.PanelName) ? "(sem quadro)" : c.PanelName,
                 Number = c.CircuitNumber,
                 LoadName = c.LoadName,
                 VoltageV = Safe(() => UnitUtils.ConvertFromInternalUnits(c.Voltage, UnitTypeId.Volts)),
                 Poles = Math.Max(1, Safe(() => c.PolesNumber)),
                 ApparentLoadVA = Safe(() => UnitUtils.ConvertFromInternalUnits(c.ApparentLoad, UnitTypeId.VoltAmperes)),
-                CurrentA = Safe(() => UnitUtils.ConvertFromInternalUnits(c.ApparentCurrent, UnitTypeId.Amperes)),
-                LengthM = realLength ?? Safe(() => UnitUtils.ConvertFromInternalUnits(c.Length, UnitTypeId.Meters)),
+                CurrentA = ReadElectricalValue(() => UnitUtils.ConvertFromInternalUnits(c.ApparentCurrent, UnitTypeId.Amperes)),
+                LengthM = realLength ?? ReadElectricalValue(() => UnitUtils.ConvertFromInternalUnits(c.Length, UnitTypeId.Meters)),
                 RealLength = realLength.HasValue,
                 GroupingOverride = realGrouping,
                 FcaOverride = realFca,
@@ -181,6 +182,11 @@ namespace RafaelElectrical.Commands
                 IsLighting = lighting,
                 IgnoreGrouping = SharedParameters.GetFlag(c, SharedParameters.IgnoreGrouping),
             };
+        }
+
+        private static double ReadElectricalValue(Func<double> read)
+        {
+            try { return read(); } catch (Exception) { return double.NaN; }
         }
 
         private static T Safe<T>(Func<T> f)

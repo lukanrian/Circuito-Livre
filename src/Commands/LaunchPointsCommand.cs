@@ -130,7 +130,7 @@ namespace RafaelElectrical.Commands
             return Result.Succeeded;
         }
 
-        private static bool SetHeight(FamilyInstance fi, double meters)
+        internal static bool SetHeight(FamilyInstance fi, double meters)
         {
             double ft = UnitUtils.ConvertToInternalUnits(meters, UnitTypeId.Meters);
             foreach (BuiltInParameter bip in new[]
@@ -146,7 +146,7 @@ namespace RafaelElectrical.Commands
             return false;
         }
 
-        private static bool SetPower(FamilyInstance fi, double va)
+        internal static bool SetPower(FamilyInstance fi, double va)
         {
             // Famílias com mais de uma tomada (ex.: "Tomada 1_Potência...", "Tomada 2_Potência...") ou nomes livres:
             // grava em todos os parâmetros de instância editáveis de potência aparente (VA).
