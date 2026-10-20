@@ -45,13 +45,13 @@ Para desinstalar, apague essa pasta.
 
 ## Compilar a partir do código
 Pré-requisitos (Windows):
-- Revit 2025, 2026 e/ou 2027 instalado (as DLLs da API são lidas de `C:\Program Files\Autodesk\Revit 20XX` e **não** fazem parte deste repositório);
+- Revit 2025 e 2027 instalados para compilar as DLLs dessas versões. Para 2026, o build usa as DLLs do Revit instalado ou restaura referências de compilação via NuGet; nenhuma DLL da API é incluída no pacote do plugin;
 - Para **compilar** o código: [.NET 8 SDK](https://dotnet.microsoft.com/download) (Revit 2025/2026) ou .NET 10 SDK (Revit 2027). Para **instalar o ZIP pronto**, não é necessário instalar o SDK.
 
 Passos:
 1. Feche o Revit.
-2. Rode `COMPILAR_E_INSTALAR.bat` (compila só para as versões instaladas e instala o bundle), ou
-   `powershell -ExecutionPolicy Bypass -File build.ps1` para só gerar `dist\RafaelElectrical.bundle` e o `.zip`. Se o Revit 2026 não estiver instalado, passe `-Api2026Dir` apontando para as DLLs de referência 2026.
+2. Rode `COMPILAR_E_INSTALAR.bat` para compilar as três versões e instalar o bundle, ou
+   `powershell -ExecutionPolicy Bypass -File build.ps1` para só gerar `dist\RafaelElectrical.bundle` e o `.zip`. Se a API 2026 já estiver disponível fora da instalação padrão, você pode passar `-Api2026Dir` para usá-la. O build falha se qualquer uma das três versões não puder ser compilada.
 
 ## Estrutura
 ```

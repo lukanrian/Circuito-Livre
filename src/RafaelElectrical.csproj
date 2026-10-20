@@ -32,7 +32,7 @@
   </PropertyGroup>
 
   <!-- DLLs da API vêm da instalação do Revit (não são copiadas para a saída) -->
-  <ItemGroup>
+  <ItemGroup Condition="Exists('$(RevitInstallDir)\RevitAPI.dll')">
     <Reference Include="RevitAPI">
       <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
       <Private>false</Private>
@@ -41,6 +41,11 @@
       <HintPath>$(RevitInstallDir)\RevitAPIUI.dll</HintPath>
       <Private>false</Private>
     </Reference>
+  </ItemGroup>
+
+  <!-- Referências de compilação para Revit 2026 quando o aplicativo não está instalado. -->
+  <ItemGroup Condition="'$(RevitVersion)' == '2026' And !Exists('$(RevitInstallDir)\RevitAPI.dll')">
+    <PackageReference Include="Autodesk.Revit.Sdk.Refs.2026" Version="1.2.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
