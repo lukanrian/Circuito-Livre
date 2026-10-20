@@ -1,4 +1,4 @@
-RafaelElectrical 0.2.0-beta — 20/10/2026
+RafaelElectrical 0.2.1-beta — 20/10/2026
 
 Instalação:
 O ZIP pronto não precisa do .NET SDK 8. O SDK é necessário apenas para compilar o código-fonte.
@@ -26,7 +26,7 @@ Correções:
 Verificação: 57 verificações automatizadas de cálculo aprovadas; compilações para
 Revit 2025, 2026 e 2027 sem avisos ou erros. Testes em tests/SizingRegression no repositório de origem.
 Não testado interativamente dentro do Revit. Revit 2026 não instalado localmente.
-A DLL 2026 foi compilada contra referências da API 26.0.4.0, obtidas dos pacotes
-Nice3point.Revit.Api.RevitAPI e RevitAPIUI 2026.0.4. Essas referências servem apenas
-à compilação e não são distribuídas nem instaladas pelo plugin.
+As DLLs 2025–2027 foram compiladas contra pacotes de referência específicos para
+cada versão. Essas referências servem apenas à compilação e não são distribuídas
+nem instaladas pelo plugin.
 As tabelas normativas existentes foram preservadas; não constitui validação normativa completa.

@@ -7,8 +7,8 @@
 
     <AssemblyName>RafaelElectrical</AssemblyName>
     <RootNamespace>RafaelElectrical</RootNamespace>
-    <Version>0.2.0</Version>
-    <InformationalVersion>0.2.0-beta</InformationalVersion>
+    <Version>0.2.1</Version>
+    <InformationalVersion>0.2.1-beta</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Company>Rafael Matias</Company>
     <Product>RafaelElectrical</Product>
@@ -25,27 +25,20 @@
     <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
 
-    <RevitInstallDir Condition="'$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit $(RevitVersion)</RevitInstallDir>
     <OutputPath>$(MSBuildThisFileDirectory)..\build\bin\$(RevitVersion)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <DefineConstants>$(DefineConstants);REVIT$(RevitVersion)</DefineConstants>
   </PropertyGroup>
 
-  <!-- DLLs da API vêm da instalação do Revit (não são copiadas para a saída) -->
-  <ItemGroup Condition="Exists('$(RevitInstallDir)\RevitAPI.dll')">
-    <Reference Include="RevitAPI">
-      <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="RevitAPIUI">
-      <HintPath>$(RevitInstallDir)\RevitAPIUI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+  <!-- Referências fixas por versão; nenhuma DLL da API é distribuída com o plugin. -->
+  <ItemGroup Condition="'$(RevitVersion)' == '2025'">
+    <PackageReference Include="Autodesk.Revit.Sdk.Refs.2025" Version="1.2.0" PrivateAssets="all" />
   </ItemGroup>
-
-  <!-- Referências de compilação para Revit 2026 quando o aplicativo não está instalado. -->
-  <ItemGroup Condition="'$(RevitVersion)' == '2026' And !Exists('$(RevitInstallDir)\RevitAPI.dll')">
+  <ItemGroup Condition="'$(RevitVersion)' == '2026'">
     <PackageReference Include="Autodesk.Revit.Sdk.Refs.2026" Version="1.2.0" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(RevitVersion)' == '2027'">
+    <PackageReference Include="Autodesk.Revit.Sdk.Refs.2027" Version="2.0.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

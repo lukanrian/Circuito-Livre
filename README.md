@@ -9,7 +9,7 @@ com dimensionamento pela **ABNT NBR 5410**. Feito em C# (.NET 8 / .NET 10, WPF),
 > o projeto e emite a ART/RRT. As tabelas da NBR 5410 foram digitadas a partir da norma e precisam ser conferidas com
 > a edição vigente. O software é distribuído **sem nenhuma garantia** (veja a [licença](LICENSE)).
 
-> 🚧 **Versão 0.2.0 beta — em desenvolvimento.** Várias funções ainda não foram testadas em projeto real. Relate o que encontrar nas [issues](../../issues).
+> 🚧 **Versão 0.2.1 beta — em desenvolvimento.** Várias funções ainda não foram testadas em projeto real. Relate o que encontrar nas [issues](../../issues).
 
 ## Funções
 
@@ -20,13 +20,14 @@ com dimensionamento pela **ABNT NBR 5410**. Feito em C# (.NET 8 / .NET 10, WPF),
 | **Coordenação** | Nomear / Copiar / Configurar Vínculos, Importar Cargas (equipamentos e quadros vinculados), Importar Diagramas, Importar Identificadores, Copiar Níveis (RVT/IFC) |
 | **Modelagem e Documentação** | Adicionar Luminárias (malha), Tomadas (NBR 5410, espaçamento ou quantidade), Interruptores (pela porta), Cotas; Construir Conduítes / Bandejas, Desvio, Suportes, Uniões, Deslocar Trecho; Central de Documentação; Identificadores de fiação com Ajustar, Visibilidade pré-definida/personalizada e Baseado na Vista; Ajustar Rota (rotas alternativas para reduzir agrupamento); Substituir por Legenda, Vista de Legenda, Reiniciar, Auto; Legenda de Pontos; Caminho do Circuito; Dimensionar Infraestrutura |
 
-**Construir Conduítes** mantém o lançamento sequencial por cliques e oferece dois modos adicionais: selecionar vários componentes para ordená-los por proximidade a partir do primeiro quadro selecionado, ou selecionar um espaço MEP e o quadro para ligar seus pontos elétricos. Esses modos usam a mesma altura, tipo de infraestrutura e criação de conexões do comando original. A proximidade usa um percurso guloso; não calcula desvio global de obstáculos. O diâmetro do eletroduto continua a ser dimensionado pelo comando **Dimensionar Infraestrutura** depois que os circuitos e cabos estiverem roteados.
 | **Utilitários Elétricos** | Centro de Cargas (seleção / quadro); Dimensionar Instalação (NBR 5410), Dimensionar Projeto (demanda, curto-circuito, padrão de entrada), Descons. Agrupamento, Balancear Fases, Retornos; Atualizar Quadros |
 | **Utilitários de Circuitos** | Criar Circuitos; Ordenar Circuitos por dispositivos / quadro / espaços; Propriedades de Circuitos (identificação automática) |
 | **Relatórios** | Relatório de Fiação e de Cargas (Excel), Tabelas de Fiação, Diagramas (unifilar com DR/DPS, multifilar, detalhe da proteção), Memorial Descritivo e de Cálculo (`.docx`) |
 | **Pranchas** | Compor Pranchas |
 | **Modificar com Circuitos** | Copiar, Copiar para Níveis, Rotacionar, Espelhar por pontos ou por linha |
 | **Sobre** | Sobre, Reportar Erro, Inspecionar Parâmetros, Painel lateral com todos os comandos e busca |
+
+**Construir Conduítes** mantém o lançamento sequencial por cliques e oferece dois modos adicionais: selecionar vários componentes para ordená-los por proximidade a partir do primeiro quadro selecionado, ou selecionar um espaço MEP e o quadro para ligar seus pontos elétricos. Esses modos usam a mesma altura, tipo de infraestrutura e criação de conexões do comando original. A proximidade usa um percurso guloso; não calcula desvio global de obstáculos. O diâmetro do eletroduto continua a ser dimensionado pelo comando **Dimensionar Infraestrutura** depois que os circuitos e cabos estiverem roteados.
 
 O plugin grava seus resultados em parâmetros compartilhados próprios, com prefixo `RE_`
 (ex.: `RE_Seção (mm²)`, `RE_Disjuntor (A)`, `RE_Queda total (%)`, `RE_Fiação`).
@@ -45,13 +46,12 @@ Para desinstalar, apague essa pasta.
 
 ## Compilar a partir do código
 Pré-requisitos (Windows):
-- Revit 2025 e 2027 instalados para compilar as DLLs dessas versões. Para 2026, o build usa as DLLs do Revit instalado ou restaura referências de compilação via NuGet; nenhuma DLL da API é incluída no pacote do plugin;
-- Para **compilar** o código: [.NET 8 SDK](https://dotnet.microsoft.com/download) (Revit 2025/2026) ou .NET 10 SDK (Revit 2027). Para **instalar o ZIP pronto**, não é necessário instalar o SDK.
+- Para **compilar** o código: [.NET 10 SDK](https://dotnet.microsoft.com/download) e acesso ao NuGet para restaurar as referências de compilação das APIs 2025–2027. Não é necessário ter o Revit instalado para compilar, e nenhuma DLL da API vai para o pacote. Para **instalar o ZIP pronto**, não é necessário instalar o SDK.
 
 Passos:
 1. Feche o Revit.
 2. Rode `COMPILAR_E_INSTALAR.bat` para compilar as três versões e instalar o bundle, ou
-   `powershell -ExecutionPolicy Bypass -File build.ps1` para só gerar `dist\RafaelElectrical.bundle` e o `.zip`. Se a API 2026 já estiver disponível fora da instalação padrão, você pode passar `-Api2026Dir` para usá-la. O build falha se qualquer uma das três versões não puder ser compilada.
+   `powershell -ExecutionPolicy Bypass -File build.ps1` para só gerar `dist\RafaelElectrical.bundle` e o `.zip`. O build falha se qualquer uma das três versões não puder ser compilada.
 
 ## Estrutura
 ```
