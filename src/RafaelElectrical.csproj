@@ -7,8 +7,8 @@
 
     <AssemblyName>RafaelElectrical</AssemblyName>
     <RootNamespace>RafaelElectrical</RootNamespace>
-    <Version>0.2.2</Version>
-    <InformationalVersion>0.2.2-beta</InformationalVersion>
+    <Version>0.2.3</Version>
+    <InformationalVersion>0.2.3-beta</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Company>Rafael Matias</Company>
     <Product>RafaelElectrical</Product>

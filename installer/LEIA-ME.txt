@@ -1,7 +1,7 @@
-RafaelElectrical 0.2.2-beta — 20/10/2026
+RafaelElectrical 0.2.3-beta — 20/10/2026
 
 Instalação:
-O ZIP pronto não precisa do .NET SDK 8. O SDK é necessário apenas para compilar o código-fonte.
+O ZIP pronto não precisa do .NET SDK. O SDK é necessário apenas para compilar o código-fonte.
 1. Feche o Revit.
 2. Extraia todos os arquivos deste ZIP.
 3. Execute Instalar.ps1 no PowerShell ou copie RafaelElectrical.bundle para
@@ -10,22 +10,14 @@ O ZIP pronto não precisa do .NET SDK 8. O SDK é necessário apenas para compil
    Para dimensionar somente um quadro, os alimentadores externos à seleção precisam
    ter dimensionamento aprovado e comprimento conhecido.
 
-Correções:
-- Auditoria de dispositivos sem circuito e cargas sem caminho completo pela infraestrutura.
-- Exportação de pranchas selecionadas em PDFs individuais, sem substituir arquivos existentes.
-- Rejeição de configurações e dados elétricos inválidos, incluindo NaN e infinito.
-- Temperatura limitada ao domínio da tabela existente: ar 10–60 °C; solo 10–50 °C.
-- Queda total pode reprovar o resultado; cálculo segue a cadeia de alimentação.
-- Seleção parcial usa a seção aprovada existente dos alimentadores externos.
-- Ciclos, alimentação ambígua e alimentadores não verificados bloqueiam o resultado.
-- Reprovação limpa os resultados RE_ anteriores; consumidores bloqueiam resultados reprovados.
-- Falha de gravação cancela a transação.
-- Icc usa tensão de linha real do sistema de distribuição. O modelo permanece
-  resistivo trifásico, mesma tensão, sem transformadores. Outros casos aparecem
-  como Não verificado. RE_Verificação de curto informa a validade de RE_Icc;
-  quando não verificado, RE_Icc é zerado para remover estimativa antiga.
+Novidades:
+- Configurações ampliadas de identificação, documentação, DR, DPS e critérios de dimensionamento.
+- Faixas de demanda e categorias de entrada editáveis; os valores iniciais são exemplos,
+  não tabelas homologadas por uma concessionária.
+- Ajustes nos identificadores de fiação, diagramas e central de documentação.
+- Melhorias nas regras de dimensionamento e proteção por classe de circuito.
 
-Verificação: 57 verificações automatizadas de cálculo aprovadas; compilações para
+Verificação: 67 verificações automatizadas de cálculo aprovadas; compilações para
 Revit 2025, 2026 e 2027 sem avisos ou erros. Testes em tests/SizingRegression no repositório de origem.
 Não testado interativamente dentro do Revit. Revit 2026 não instalado localmente.
 As DLLs 2025–2027 foram compiladas contra pacotes de referência específicos para
