@@ -76,7 +76,7 @@ namespace RafaelElectrical
                     "Lança qualquer ponto clicando na planta, já com altura e potência."));
             AddSplit(model, "RE_BuildSplit", "Construir\nConduítes",
                 new Item("RE_BuildInfra", "Construir\nConduítes", typeof(BuildInfrastructureCommand), "conduit",
-                    "Constrói eletroduto ou eletrocalha ligando, em sequência, os elementos clicados (quadro primeiro), direto no conector das famílias."),
+                    "Constrói eletroduto ou eletrocalha por cliques sequenciais, seleção por proximidade ou pontos de um espaço MEP e quadro."),
                 new Item("RE_BuildTrays", "Construir Bandejas de Cabos", typeof(BuildTraysCommand), "tray",
                     "Liga por eletrocalha os conectores de bandeja alinhados e de frente um para o outro (seleção por retângulo)."),
                 new Item("RE_Detour", "Desvio de Infraestrutura", typeof(InfraDetourCommand), "detour",

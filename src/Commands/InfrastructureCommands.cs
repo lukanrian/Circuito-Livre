@@ -5,6 +5,7 @@ using System.Linq;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
+using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
@@ -326,7 +327,7 @@ namespace RafaelElectrical.Commands
     // =====================================================================================
 
     /// <summary>
-    /// Constrói eletroduto ou eletrocalha ligando, em sequência, os elementos clicados (quadro primeiro):
+    /// Constrói eletroduto ou eletrocalha entre componentes selecionados:
     /// trecho horizontal em L na altura escolhida e descidas até cada dispositivo, com curvas e tês.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
@@ -355,7 +356,7 @@ namespace RafaelElectrical.Commands
             }
 
             var window = new ChecklistWindow("Construir infraestrutura",
-                    "Depois de OK, clique nos elementos na ordem do caminho (comece pelo quadro). ESC termina.",
+                    "Escolha o tipo e a altura da infraestrutura; em seguida, selecione o modo de lançamento.",
                     new List<CheckItem>(), "OK")
                 .AllowEmpty()
                 .WithCombo("Tipo:", types)
@@ -374,21 +375,85 @@ namespace RafaelElectrical.Commands
 
             var points = new List<XYZ>();
             var plugs = new List<Connector>();   // conector livre de eletroduto/eletrocalha da família (ou null)
-            while (true)
+            var mode = new TaskDialog("Construir infraestrutura")
+            {
+                MainInstruction = "Como deseja selecionar os pontos?",
+                CommonButtons = TaskDialogCommonButtons.Cancel
+            };
+            mode.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Sequencial — clicar na ordem do caminho");
+            mode.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Proximidade automática — selecionar vários componentes");
+            mode.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Espaço MEP — conectar pontos do espaço ao quadro escolhido");
+            TaskDialogResult selectedMode = mode.Show();
+            if (selectedMode == TaskDialogResult.Cancel) return Result.Cancelled;
+
+            if (selectedMode == TaskDialogResult.CommandLink1)
+            {
+                while (true)
+                {
+                    try
+                    {
+                        Reference r = uidoc.Selection.PickObject(ObjectType.Element, $"Clique no {points.Count + 1}º elemento do caminho (ESC termina)");
+                        Element picked = doc.GetElement(r);
+                        Connector plug = FreeInfraConnector(picked, tray);
+                        XYZ p = plug?.Origin ?? RevitHelpers.PointOf(picked);
+                        if (p == null) continue;
+                        points.Add(p);
+                        plugs.Add(plug);
+                    }
+                    catch (Autodesk.Revit.Exceptions.OperationCanceledException) { break; }
+                }
+            }
+            else if (selectedMode == TaskDialogResult.CommandLink2)
             {
                 try
                 {
-                    Reference r = uidoc.Selection.PickObject(ObjectType.Element, $"Clique no {points.Count + 1}º elemento do caminho (ESC termina)");
-                    Element picked = doc.GetElement(r);
-                    Connector plug = FreeInfraConnector(picked, tray);
-                    XYZ p = plug?.Origin ?? RevitHelpers.PointOf(picked);
-                    if (p == null) continue;
-                    points.Add(p);
-                    plugs.Add(plug);
+                    IList<Reference> refs = uidoc.Selection.PickObjects(ObjectType.Element,
+                        "Selecione os componentes elétricos e pressione Concluir");
+                    var selected = refs.Select(r => doc.GetElement(r)).OfType<FamilyInstance>().ToList();
+                    foreach (FamilyInstance fi in selected.Where(CircuitDeviceFilter.IsPanel)) AddPoint(fi, tray, points, plugs);
+                    foreach (FamilyInstance fi in selected.Where(fi => !CircuitDeviceFilter.IsPanel(fi))) AddPoint(fi, tray, points, plugs);
+                    OrderByProximity(points, plugs);
                 }
-                catch (Autodesk.Revit.Exceptions.OperationCanceledException) { break; }
+                catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return Result.Cancelled; }
             }
-            if (points.Count < 2) return Result.Cancelled;
+            else if (selectedMode == TaskDialogResult.CommandLink3)
+            {
+                Space space;
+                try
+                {
+                    Reference r = uidoc.Selection.PickObject(ObjectType.Element, new SpatialPickFilter(), "Selecione um espaço MEP");
+                    space = doc.GetElement(r) as Space;
+                }
+                catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return Result.Cancelled; }
+                if (space == null)
+                {
+                    TaskDialog.Show("Construir infraestrutura", "Selecione um espaço MEP do modelo atual.");
+                    return Result.Cancelled;
+                }
+                try
+                {
+                    Reference r = uidoc.Selection.PickObject(ObjectType.Element, new PanelFilter(), "Selecione o quadro que alimenta o espaço");
+                    AddPoint(doc.GetElement(r), tray, points, plugs);
+                }
+                catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return Result.Cancelled; }
+                foreach (FamilyInstance fi in new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>())
+                {
+                    if (CircuitDeviceFilter.IsPanel(fi)) continue;
+                    BuiltInCategory? category = fi.Category?.BuiltInCategory;
+                    if (category != BuiltInCategory.OST_ElectricalFixtures &&
+                        category != BuiltInCategory.OST_LightingFixtures &&
+                        category != BuiltInCategory.OST_LightingDevices &&
+                        category != BuiltInCategory.OST_ElectricalEquipment) continue;
+                    XYZ p = RevitHelpers.PointOf(fi);
+                    if (p != null && space.IsPointInSpace(p)) AddPoint(fi, tray, points, plugs);
+                }
+                OrderByProximity(points, plugs);
+            }
+            if (points.Count < 2)
+            {
+                TaskDialog.Show("Construir infraestrutura", "São necessários pelo menos dois componentes com posição válida para criar uma rota.");
+                return Result.Cancelled;
+            }
 
             Level level = plan.GenLevel;
             double h = level.ProjectElevation + RevitHelpers.M(heightM);
@@ -436,6 +501,35 @@ namespace RafaelElectrical.Commands
                 (warnings.Discarded > 0 ? $"\n{warnings.Discarded} aviso(s) do Revit descartado(s)." : "") +
                 (fittingFail > 0 ? $"\n{fittingFail} conexão(ões) não puderam ser feitas automaticamente (verifique as conexões do tipo em Preferências de roteamento)." : ""));
             return Result.Succeeded;
+        }
+
+        private static void AddPoint(Element element, bool tray, List<XYZ> points, List<Connector> plugs)
+        {
+            if (element is not FamilyInstance) return;
+            Connector plug = FreeInfraConnector(element, tray);
+            XYZ p = plug?.Origin ?? RevitHelpers.PointOf(element);
+            if (p == null || points.Any(existing => existing.DistanceTo(p) < RevitHelpers.M(0.01))) return;
+            points.Add(p);
+            plugs.Add(plug);
+        }
+
+        private static void OrderByProximity(List<XYZ> points, List<Connector> plugs)
+        {
+            // shortcut: greedy proximity can differ from the shortest global network; replace if route optimization is required.
+            if (points.Count < 3) return;
+            var remaining = Enumerable.Range(1, points.Count - 1).ToList();
+            var order = new List<int> { 0 };
+            while (remaining.Count > 0)
+            {
+                int next = remaining.OrderBy(i => points[order[order.Count - 1]].DistanceTo(points[i])).First();
+                order.Add(next);
+                remaining.Remove(next);
+            }
+            System.Diagnostics.Debug.Assert(order.Count == points.Count && order.Distinct().Count() == points.Count);
+            XYZ[] sortedPoints = order.Select(i => points[i]).ToArray();
+            Connector[] sortedPlugs = order.Select(i => plugs[i]).ToArray();
+            points.Clear(); points.AddRange(sortedPoints);
+            plugs.Clear(); plugs.AddRange(sortedPlugs);
         }
 
         private static MEPCurve Segment(Document doc, bool tray, ElementId typeId, ElementId levelId, XYZ a, XYZ b, ref int created)
