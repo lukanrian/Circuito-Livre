@@ -69,7 +69,7 @@ $components = ($built | ForEach-Object {
 
 $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
-<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Revit" Name="RafaelElectrical" AppVersion="0.2.1" ProductType="Application" ProductCode="$appId">
+<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Revit" Name="RafaelElectrical" AppVersion="0.2.2" ProductType="Application" ProductCode="$appId">
   <CompanyDetails Name="Rafael Matias" />
 $components
 </ApplicationPackage>

@@ -9,7 +9,7 @@ com dimensionamento pela **ABNT NBR 5410**. Feito em C# (.NET 8 / .NET 10, WPF),
 > o projeto e emite a ART/RRT. As tabelas da NBR 5410 foram digitadas a partir da norma e precisam ser conferidas com
 > a edição vigente. O software é distribuído **sem nenhuma garantia** (veja a [licença](LICENSE)).
 
-> 🚧 **Versão 0.2.1 beta — em desenvolvimento.** Várias funções ainda não foram testadas em projeto real. Relate o que encontrar nas [issues](../../issues).
+> 🚧 **Versão 0.2.2 beta — em desenvolvimento.** Várias funções ainda não foram testadas em projeto real. Relate o que encontrar nas [issues](../../issues).
 
 ## Funções
 

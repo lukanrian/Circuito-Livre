@@ -143,6 +143,8 @@ namespace RafaelElectrical
                     "Clique no interruptor e nas luminárias que ele comanda: próxima letra de retorno do circuito (a, b, c...)."));
             AddButton(electric, new Item("RE_Route", "Atualizar\nQuadros", typeof(RouteCircuitsCommand), "update",
                 "Roteia os circuitos pela infraestrutura (usa as rotas do Ajustar Rota): comprimento e agrupamento reais e cabos em cada trecho."));
+            AddButton(electric, new Item("RE_AuditElectrical", "Auditar\nInstalação", typeof(AuditElectricalCommand), "inspect",
+                "Encontra dispositivos sem circuito e circuitos que não alcançam todas as cargas pela infraestrutura modelada."));
 
             // Circuitos (força e telecom)
             RibbonPanel circuits = Panel(application, "Utilitários de Circuitos");
@@ -176,6 +178,8 @@ namespace RafaelElectrical
             RibbonPanel sheets = Panel(application, "Pranchas");
             AddButton(sheets, new Item("RE_Sheets", "Compor\nPranchas", typeof(ComposeSheetsCommand), "sheets",
                 "Cria uma prancha por vista selecionada, com a folha e a numeração escolhidas."));
+            AddButton(sheets, new Item("RE_ExportSheetsPdf", "Exportar\nPDFs", typeof(ExportSheetsPdfCommand), "sheets",
+                "Exporta as pranchas selecionadas em PDFs individuais, sem sobrescrever arquivos existentes."));
 
             // Modificar com Circuitos
             RibbonPanel modify = Panel(application, "Modificar com Circuitos");

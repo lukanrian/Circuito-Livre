@@ -23,6 +23,7 @@ namespace RafaelElectrical.Services
             public double WorstFca = 1.0;
             public int DevicesReached;
             public int DevicesTotal;
+            public HashSet<ElementId> ReachedDevices = new HashSet<ElementId>();
             public bool PanelReached;
             public bool Routed => PanelReached && DevicesReached > 0;
         }
@@ -171,11 +172,13 @@ namespace RafaelElectrical.Services
                     {
                         if (!stored.Contains(node)) continue;
                         route.DevicesReached++;
+                        route.ReachedDevices.Add(device.Id);
                         dropsFt += drop;
                         continue;
                     }
                     if (!tree.ContainsKey(node)) continue;
                     route.DevicesReached++;
+                    route.ReachedDevices.Add(device.Id);
                     dropsFt += drop;
                     for (ElementId n = node; n != null; n = tree[n]) route.Segments.Add(n);
                 }

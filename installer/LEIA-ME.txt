@@ -1,4 +1,4 @@
-RafaelElectrical 0.2.1-beta — 20/10/2026
+RafaelElectrical 0.2.2-beta — 20/10/2026
 
 Instalação:
 O ZIP pronto não precisa do .NET SDK 8. O SDK é necessário apenas para compilar o código-fonte.
@@ -11,6 +11,8 @@ O ZIP pronto não precisa do .NET SDK 8. O SDK é necessário apenas para compil
    ter dimensionamento aprovado e comprimento conhecido.
 
 Correções:
+- Auditoria de dispositivos sem circuito e cargas sem caminho completo pela infraestrutura.
+- Exportação de pranchas selecionadas em PDFs individuais, sem substituir arquivos existentes.
 - Rejeição de configurações e dados elétricos inválidos, incluindo NaN e infinito.
 - Temperatura limitada ao domínio da tabela existente: ar 10–60 °C; solo 10–50 °C.
 - Queda total pode reprovar o resultado; cálculo segue a cadeia de alimentação.
