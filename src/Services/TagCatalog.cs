@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>Categorias de dispositivos e as categorias de identificador correspondentes.</summary>
     public static class TagCatalog

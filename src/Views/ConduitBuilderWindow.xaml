@@ -1,0 +1,66 @@
+<Window x:Class="CircuitoLivre.Views.ConduitBuilderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Lançar eletrodutos — Circuito Livre"
+        SizeToContent="Height" Width="430" MinWidth="380"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize">
+    <StackPanel Margin="12">
+
+        <GroupBox Header="Tipos e dimensão" Padding="8">
+            <StackPanel>
+                <TextBlock Text="Eletroduto do teto/laje (trechos horizontais)"/>
+                <ComboBox x:Name="CeilingCombo" Margin="0,2,0,8" DisplayMemberPath="Label"/>
+                <TextBlock Text="Eletroduto da parede (subidas/descidas)"/>
+                <ComboBox x:Name="WallCombo" Margin="0,2,0,8" DisplayMemberPath="Label"/>
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel Margin="0,0,16,0">
+                        <TextBlock Text="Diâmetro (mm)"/>
+                        <ComboBox x:Name="DiameterCombo" Width="90" IsEditable="True"/>
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="Altura do trecho horizontal (m)"/>
+                        <TextBox x:Name="HeightBox" Width="90"/>
+                    </StackPanel>
+                </StackPanel>
+                <TextBlock Text="Disciplina / serviço" Margin="0,8,0,0"/>
+                <TextBox x:Name="DisciplineBox"/>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Ângulos e orientação" Padding="8" Margin="0,8,0,0">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel Margin="0,0,24,0">
+                        <TextBlock Text="Ângulo em planta" FontWeight="SemiBold"/>
+                        <RadioButton x:Name="PlanFree" Content="Livre" GroupName="Plan"/>
+                        <RadioButton x:Name="Plan90" Content="90°" GroupName="Plan"/>
+                        <RadioButton x:Name="Plan45" Content="45°" GroupName="Plan"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,24,0">
+                        <TextBlock Text="Ângulo na parede" FontWeight="SemiBold"/>
+                        <RadioButton x:Name="WallFree" Content="Livre" GroupName="Wall"/>
+                        <RadioButton x:Name="Wall90" Content="90°" GroupName="Wall"/>
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="Orientação do L" FontWeight="SemiBold"/>
+                        <RadioButton x:Name="OriDefault" Content="Padrão" GroupName="Ori"/>
+                        <RadioButton x:Name="OriHorizontal" Content="Horizontal" GroupName="Ori"/>
+                        <RadioButton x:Name="OriVertical" Content="Vertical" GroupName="Ori"/>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Modo de conexão" Padding="8" Margin="0,8,0,0">
+            <StackPanel>
+                <RadioButton x:Name="ConnCeiling" Content="Priorizar teto (sobe, corre no teto e desce)" GroupName="Conn"/>
+                <RadioButton x:Name="ConnWall" Content="Mesma parede (trecho direto entre os pontos)" GroupName="Conn" Margin="0,4,0,0"/>
+            </StackPanel>
+        </GroupBox>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Selecionar pontos..." Padding="14,4" FontWeight="SemiBold" Margin="0,0,8,0" Click="Ok_Click"/>
+            <Button Content="Cancelar" Padding="12,4" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

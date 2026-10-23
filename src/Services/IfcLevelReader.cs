@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>Nível lido de uma origem (vínculo ou IFC), com elevação em metros.</summary>
     public class SourceLevel

@@ -1,4 +1,4 @@
-# RafaelElectrical — plugin elétrico open source para Revit
+# Circuito Livre — plugin elétrico open source para Revit
 
 Plugin gratuito e de código aberto para **projetos elétricos e de telecom no Autodesk Revit 2025, 2026 e 2027**,
 com dimensionamento pela **ABNT NBR 5410**. Feito em C# (.NET 8 / .NET 10, WPF), sem dependências externas.
@@ -38,9 +38,9 @@ Atualizar Quadros → Dimensionar Instalação → Dimensionar Infraestrutura �
 Preencher Identificação → Identificadores → Unifilar / Tabelas / Relatórios / Memorial → Compor Pranchas.
 
 ## Instalar (versão compilada)
-1. Baixe o `RafaelElectrical.bundle.zip` em **[Releases](../../releases)**.
-2. Extraia todo o ZIP e execute `Instalar.ps1` no PowerShell, com o Revit fechado. Também é possível copiar a pasta `RafaelElectrical.bundle` para `%APPDATA%\Autodesk\ApplicationPlugins`.
-3. Abra o Revit: aparece a aba **RafaelElectrical**.
+1. Baixe o `CircuitoLivre.bundle.zip` em **[Releases](../../releases)**.
+2. Extraia todo o ZIP e execute `Instalar.ps1` no PowerShell, com o Revit fechado. Também é possível copiar a pasta `CircuitoLivre.bundle` para `%APPDATA%\Autodesk\ApplicationPlugins`.
+3. Abra o Revit: aparece a aba **Circuito Livre**.
 
 Para desinstalar, apague essa pasta.
 
@@ -51,7 +51,7 @@ Pré-requisitos (Windows):
 Passos:
 1. Feche o Revit.
 2. Rode `COMPILAR_E_INSTALAR.bat` para compilar as três versões e instalar o bundle, ou
-   `powershell -ExecutionPolicy Bypass -File build.ps1` para só gerar `dist\RafaelElectrical.bundle` e o `.zip`. O build falha se qualquer uma das três versões não puder ser compilada.
+   `powershell -ExecutionPolicy Bypass -File build.ps1` para só gerar `dist\CircuitoLivre.bundle` e o `.zip`. O build falha se qualquer uma das três versões não puder ser compilada.
 
 ## Estrutura
 ```

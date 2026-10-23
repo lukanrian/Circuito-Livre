@@ -5,11 +5,11 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Selection;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Selection;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>Identificadores de fiação nos eletrodutos/eletrocalhas da vista ativa.</summary>
     [Transaction(TransactionMode.Manual)]

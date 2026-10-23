@@ -8,9 +8,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
 using Microsoft.Win32;
-using RafaelElectrical.Services;
+using CircuitoLivre.Services;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     public partial class DimensionWindow : Window
     {
@@ -92,6 +92,10 @@ namespace RafaelElectrical.Views
         private void Calculate()
         {
             Results = SizingCoordinator.SizeAll(_inputs, Settings, out int totalFail, _context);
+            // Ao adotar outra seção, reverifica o circuito (adiado para não mexer na grade durante o evento).
+            foreach (SizingResult r in Results)
+                r.OnAdoptChanged = () => Dispatcher.BeginInvoke(
+                    new Action(Calculate), System.Windows.Threading.DispatcherPriority.Background);
             ResultGrid.ItemsSource = Results;
 
             int ok = Results.Count(r => r.Ok);
@@ -152,13 +156,14 @@ namespace RafaelElectrical.Views
             {
                 var sheet = new System.Collections.Generic.List<System.Collections.Generic.IList<object>>
                 {
-                    new object[] { "Quadro", "Circuito", "Descrição", "Tensão (V)", "Polos", "Ib (A)", "Comprimento (m)", "Agrupamento", "Seção (mm²)", "PE (mm²)",
+                    new object[] { "Quadro", "Circuito", "Descrição", "Tensão (V)", "Polos", "Ib (A)", "Comprimento (m)", "Agrupamento", "Calculada (mm²)", "Adotada (mm²)", "PE (mm²)",
                         "Disjuntor (A)", "Iz (A)", "Queda (%)", "Queda total (%)", "Critério", "Fiação", "Situação" },
                 };
                 foreach (SizingResult r in Results)
                     sheet.Add(new object[]
                     {
                         r.Panel, r.Number, r.LoadName, Math.Round(r.VoltageV), r.Poles, Math.Round(r.CurrentA, 2), Math.Round(r.LengthM, 1), r.Grouping?.ToString(),
+                        r.CalculatedSectionMm2 > 0 ? r.CalculatedSectionMm2 : (object)"",
                         r.SectionMm2 > 0 ? r.SectionMm2 : (object)"", r.ProtectionMm2 > 0 ? r.ProtectionMm2 : (object)"", r.BreakerA > 0 ? (double)r.BreakerA : (object)"",
                         Math.Round(r.IzA, 1), Math.Round(r.VoltageDropPercent, 2), Math.Round(r.TotalDropPercent, 2), r.Criterion, r.Wiring, r.Status,
                     });
@@ -177,13 +182,14 @@ namespace RafaelElectrical.Views
             var sb = new StringBuilder();
             sb.AppendLine($"Método {Settings.Method};Isolação {Settings.Insulation};Temperatura {Settings.TemperatureC.ToString(Br)} °C;" +
                           $"Agrupados {Settings.GroupedCircuits};Queda máx. {Settings.MaxVoltageDropPercent.ToString(Br)} %");
-            sb.AppendLine("Quadro;Circuito;Descrição;Tensão (V);Polos;Ib (A);Comprimento (m);Agrupamento;Seção (mm²);PE (mm²);Disjuntor (A);Iz (A);Queda (%);Queda total (%);Critério;Fiação;Situação");
+            sb.AppendLine("Quadro;Circuito;Descrição;Tensão (V);Polos;Ib (A);Comprimento (m);Agrupamento;Calculada (mm²);Adotada (mm²);PE (mm²);Disjuntor (A);Iz (A);Queda (%);Queda total (%);Critério;Fiação;Situação");
             foreach (SizingResult r in Results)
             {
                 sb.AppendLine(string.Join(";",
                     Esc(r.Panel), Esc(r.Number), Esc(r.LoadName),
                     r.VoltageV.ToString("0", Br), r.Poles.ToString(Br), r.CurrentA.ToString("0.00", Br),
                     r.LengthM.ToString("0.0", Br), r.Grouping,
+                    r.CalculatedSectionMm2 > 0 ? Nbr5410.FormatSection(r.CalculatedSectionMm2) : "",
                     r.SectionMm2 > 0 ? Nbr5410.FormatSection(r.SectionMm2) : "",
                     r.ProtectionMm2 > 0 ? Nbr5410.FormatSection(r.ProtectionMm2) : "",
                     r.BreakerA > 0 ? r.BreakerA.ToString(Br) : "",

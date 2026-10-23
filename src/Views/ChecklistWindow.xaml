@@ -1,4 +1,4 @@
-<Window x:Class="RafaelElectrical.Views.ChecklistWindow"
+<Window x:Class="CircuitoLivre.Views.ChecklistWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Height="560" Width="560" MinHeight="360" MinWidth="420"

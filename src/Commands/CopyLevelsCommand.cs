@@ -5,10 +5,10 @@ using System.Windows.Interop;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Cria no projeto os níveis de um vínculo (Revit ou IFC vinculado) ou de um arquivo .ifc.

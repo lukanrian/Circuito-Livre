@@ -6,10 +6,10 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using RafaelElectrical.Selection;
-using RafaelElectrical.Services;
+using CircuitoLivre.Selection;
+using CircuitoLivre.Services;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>Cor e helpers comuns do "Caminho do Circuito".</summary>
     internal static class CircuitPath

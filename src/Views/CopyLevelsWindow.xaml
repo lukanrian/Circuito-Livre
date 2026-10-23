@@ -1,7 +1,7 @@
-﻿<Window x:Class="RafaelElectrical.Views.CopyLevelsWindow"
+﻿<Window x:Class="CircuitoLivre.Views.CopyLevelsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Copiar níveis — RafaelElectrical"
+        Title="Copiar níveis — Circuito Livre"
         Height="860" Width="1180" MinHeight="560" MinWidth="760"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResize">
     <Grid Margin="10">

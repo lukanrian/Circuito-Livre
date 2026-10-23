@@ -6,9 +6,9 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Events;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Views;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Lança luminárias, tomadas, interruptores e pontos de telecom com as famílias carregadas no projeto,

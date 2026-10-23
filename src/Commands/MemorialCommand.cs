@@ -8,11 +8,11 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using Microsoft.Win32;
-using RafaelElectrical.Selection;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Selection;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Gera o memorial descritivo e de cálculo da instalação elétrica em Word (.docx): capa, sumário,

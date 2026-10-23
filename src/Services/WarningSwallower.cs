@@ -1,6 +1,6 @@
 using Autodesk.Revit.DB;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>
     /// Descarta os avisos (não os erros) do Revit durante uma transação do plugin, para não interromper

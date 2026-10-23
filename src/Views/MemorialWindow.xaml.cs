@@ -3,7 +3,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     public partial class MemorialWindow : Window
     {

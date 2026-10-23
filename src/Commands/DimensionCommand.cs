@@ -7,11 +7,11 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using RafaelElectrical.Selection;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Selection;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Dimensiona condutores e disjuntores dos circuitos de força pela NBR 5410

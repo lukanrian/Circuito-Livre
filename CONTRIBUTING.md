@@ -1,6 +1,6 @@
 # Como contribuir
 
-Obrigado por ajudar a melhorar o RafaelElectrical!
+Obrigado por ajudar a melhorar o Circuito Livre!
 
 ## Relatar erro ou sugerir função
 Abra uma [issue](../../issues/new/choose) usando um dos modelos. Para erros, informe:

@@ -4,10 +4,10 @@ using System.Linq;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     internal static class LinkPicker
     {

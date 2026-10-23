@@ -3,7 +3,7 @@
 Compile primeiro para Revit 2025 e execute:
 
 ```powershell
-dotnet build src/RafaelElectrical.csproj -c Release -p:RevitVersion=2025
+dotnet build src/CircuitoLivre.csproj -c Release -p:RevitVersion=2025
 dotnet run --project tests/SizingRegression -c Release
 ```
 

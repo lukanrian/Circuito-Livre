@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text.Json;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
-using RafaelElectrical.Commands;
+using CircuitoLivre.Commands;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>Opções da identificação automática, guardadas no projeto (ProjectStorage).</summary>
     public class AutoIdOptions
@@ -128,7 +128,7 @@ namespace RafaelElectrical.Services
 
         public UpdaterId GetUpdaterId() => _id;
         public ChangePriority GetChangePriority() => ChangePriority.MEPSystems;
-        public string GetUpdaterName() => "RafaelElectrical — Identificação automática";
+        public string GetUpdaterName() => "Circuito Livre — Identificação automática";
         public string GetAdditionalInformation() =>
             "Atualiza RE_Identificação e RE_Nível dos circuitos e dispositivos quando os circuitos mudam.";
     }

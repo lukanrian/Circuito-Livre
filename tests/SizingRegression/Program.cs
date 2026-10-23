@@ -1,4 +1,4 @@
-using RafaelElectrical.Services;
+using CircuitoLivre.Services;
 
 int checks = 0;
 void Check(bool ok, string name) { if (!ok) throw new Exception(name); checks++; Console.WriteLine("PASS " + name); }
@@ -117,4 +117,70 @@ var resized = SizingCoordinator.SizeAll(new() { Circuit() }, tighter, out _)[0];
 Check(resized.Ok && resized.TotalDropPercent <= 2 && resized.SectionMm2 == 16, "origem redimensiona para limite total menor");
 var badSettings = new DimensioningSettings { Resistivity = double.NaN };
 Check(!CircuitSizer.Size(Circuit(), badSettings).Ok, "configuração direta inválida também rejeitada");
+// Condutores em paralelo: 2,5 mm² (B1/PVC, Iz=24 A) não atende 30 A sozinho; 2 em paralelo sim (2×24×0,80=38,4 A).
+var parallelOn = new DimensioningSettings { MultipleConductorsNcf = true, MaxSection = 2.5, GroupedCircuits = 1 };
+var bigLoad = Circuit(); bigLoad.CurrentA = 30; bigLoad.LengthM = 5;
+var parallelResult = CircuitSizer.Size(bigLoad, parallelOn);
+Check(parallelResult.Ok && parallelResult.ConductorsPerPhase >= 2 && parallelResult.SectionMm2 == 2.5,
+    "condutores em paralelo atendem carga acima do condutor único");
+var parallelOff = new DimensioningSettings { MultipleConductorsNcf = false, MaxSection = 2.5, GroupedCircuits = 1 };
+Check(!CircuitSizer.Size(bigLoad, parallelOff).Ok, "sem paralelo, a mesma carga é reprovada");
+// Alumínio: usa a tabela de alumínio e a seção mínima de 16 mm²; mesma carga exige seção maior que o cobre.
+var alSettings = new DimensioningSettings { GroupedCircuits = 1 };
+alSettings.CircuitDocumentation.Add(new CircuitDocumentationRule { LoadName = "Alim", Poles = 3, Material = "Alumínio", Insulation = "PVC", Curve = "C" });
+var alCircuit = Circuit(); alCircuit.LoadName = "Alim"; alCircuit.Poles = 3; alCircuit.VoltageV = 220; alCircuit.CurrentA = 30; alCircuit.LengthM = 10;
+var alResult = CircuitSizer.Size(alCircuit, alSettings);
+Check(alResult.Ok && alResult.SectionMm2 >= 16, "alumínio respeita seção mínima de 16 mm²");
+var cuCircuit = Circuit(); cuCircuit.Poles = 3; cuCircuit.VoltageV = 220; cuCircuit.CurrentA = 30; cuCircuit.LengthM = 10;
+var cuResult = CircuitSizer.Size(cuCircuit, new DimensioningSettings { GroupedCircuits = 1 });
+Check(cuResult.Ok && cuResult.SectionMm2 < alResult.SectionMm2, "alumínio exige seção maior que cobre para a mesma carga");
+
+// Calculado vs adotado: a seção calculada é preservada e a adotada força e reverifica o circuito.
+var adoptCalc = CircuitSizer.Size(Circuit(), settings);
+Check(adoptCalc.Ok && adoptCalc.CalculatedSectionMm2 == 10 && adoptCalc.SectionMm2 == 10 && !adoptCalc.IsAdopted,
+    "seção calculada preenchida quando não há adoção");
+var adoptUp = Circuit(); adoptUp.AdoptedSectionMm2 = 16;
+var adoptUpRes = CircuitSizer.Size(adoptUp, settings, adoptUp.AdoptedSectionMm2);
+Check(adoptUpRes.Ok && adoptUpRes.SectionMm2 == 16 && adoptUpRes.CalculatedSectionMm2 == 10 &&
+      adoptUpRes.AdoptedDiffers && adoptUpRes.Criterion == "Seção adotada",
+    "adotar seção maior força, reverifica e mantém a calculada");
+var adoptSame = Circuit(); adoptSame.AdoptedSectionMm2 = 10;
+var adoptSameRes = CircuitSizer.Size(adoptSame, settings, adoptSame.AdoptedSectionMm2);
+Check(adoptSameRes.Ok && adoptSameRes.SectionMm2 == 10 && !adoptSameRes.AdoptedDiffers,
+    "adotar a própria seção calculada não diverge");
+var adoptLow = Circuit(); adoptLow.AdoptedSectionMm2 = 1.5;
+var adoptLowRes = CircuitSizer.Size(adoptLow, settings, adoptLow.AdoptedSectionMm2);
+Check(!adoptLowRes.Ok && adoptLowRes.CalculatedSectionMm2 == 10 && adoptLowRes.Status.Contains("fixada"),
+    "adotar seção insuficiente reprova e mostra a calculada");
+
+// Roteamento em planta do lançamento de eletrodutos (trava de ângulo + orientação).
+var inv = System.Globalization.CultureInfo.InvariantCulture;
+string N(double v) => v.ToString("0.#", inv);
+string Way(System.Collections.Generic.List<(double X, double Y)> p) => string.Join(" ", p.Select(v => $"({N(v.X)},{N(v.Y)})"));
+Check(Way(ConduitRouting.PlanWaypoints(0, 0, 3, 2, ConduitAngleLock.Deg90, ConduitRunOrientation.Default)) == "(0,0) (3,0) (3,2)",
+    "90° padrão faz L pelo eixo X primeiro");
+Check(Way(ConduitRouting.PlanWaypoints(0, 0, 3, 2, ConduitAngleLock.Deg90, ConduitRunOrientation.Vertical)) == "(0,0) (0,2) (3,2)",
+    "90° vertical faz L pelo eixo Y primeiro");
+Check(Way(ConduitRouting.PlanWaypoints(0, 0, 3, 2, ConduitAngleLock.Free, ConduitRunOrientation.Default)) == "(0,0) (3,2)",
+    "livre vai direto (diagonal)");
+Check(Way(ConduitRouting.PlanWaypoints(0, 0, 3, 2, ConduitAngleLock.Deg45, ConduitRunOrientation.Default)) == "(0,0) (2,2) (3,2)",
+    "45° faz diagonal no menor eixo e reta no restante");
+Check(Way(ConduitRouting.PlanWaypoints(0, 0, 3, 0, ConduitAngleLock.Deg90, ConduitRunOrientation.Default)) == "(0,0) (3,0)",
+    "trecho colinear não cria vértice repetido");
+
+// Caminho 3D da perna (teto×parede e ângulo de parede).
+string Way3(System.Collections.Generic.List<(double X, double Y, double Z)> p) => string.Join(" ", p.Select(v => $"({N(v.X)},{N(v.Y)},{N(v.Z)})"));
+Check(Way3(ConduitRouting.LegWaypoints(0, 0, 0, 3, 2, 1.3, 2.8, ConduitAngleLock.Deg90, ConduitRunOrientation.Default, ConduitAngleLock.Deg90, true))
+    == "(0,0,0) (0,0,2.8) (3,0,2.8) (3,2,2.8) (3,2,1.3)",
+    "teto 90°/parede 90°: sobe reto, L no teto e desce reto");
+Check(Way3(ConduitRouting.LegWaypoints(0, 0, 0, 3, 2, 1.3, 2.8, ConduitAngleLock.Deg90, ConduitRunOrientation.Default, ConduitAngleLock.Free, true))
+    == "(0,0,0) (3,0,2.8) (3,2,1.3)",
+    "parede livre: diagonal direto ao vértice do teto e ao dispositivo");
+Check(Way3(ConduitRouting.LegWaypoints(0, 0, 0, 3, 0, 1.3, 2.8, ConduitAngleLock.Deg90, ConduitRunOrientation.Default, ConduitAngleLock.Deg90, false))
+    == "(0,0,0) (3,0,0) (3,0,1.3)",
+    "mesma parede 90°: anda em planta e depois sobe");
+Check(Way3(ConduitRouting.LegWaypoints(0, 0, 0, 3, 0, 1.3, 2.8, ConduitAngleLock.Deg90, ConduitRunOrientation.Default, ConduitAngleLock.Free, false))
+    == "(0,0,0) (3,0,1.3)",
+    "mesma parede livre: trecho direto (diagonal)");
+
 Console.WriteLine($"{checks} verificações aprovadas.");

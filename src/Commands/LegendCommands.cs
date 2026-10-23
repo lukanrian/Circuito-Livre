@@ -5,10 +5,10 @@ using System.Text.Json;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Legenda de pontos: dá um número a cada tipo de ponto (quadro, tomada, luminária, interruptor, telecom),

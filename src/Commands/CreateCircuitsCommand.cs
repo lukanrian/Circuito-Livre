@@ -6,9 +6,9 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using RafaelElectrical.Selection;
+using CircuitoLivre.Selection;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Cria circuitos (força, dados, telefone, comunicação, segurança, alarme...) a partir de dispositivos

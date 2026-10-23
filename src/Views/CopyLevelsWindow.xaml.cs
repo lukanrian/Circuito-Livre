@@ -7,9 +7,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
 using Microsoft.Win32;
-using RafaelElectrical.Services;
+using CircuitoLivre.Services;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     /// <summary>Uma origem de níveis: um vínculo carregado ou um arquivo IFC.</summary>
     public class LevelSource

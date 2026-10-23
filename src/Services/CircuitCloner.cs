@@ -4,7 +4,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>
     /// Depois de copiar/espelhar dispositivos, recria nas cópias os circuitos (força e telecom) que existiam

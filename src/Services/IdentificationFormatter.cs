@@ -1,6 +1,6 @@
 ﻿using System.Linq;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>Monta o texto de identificação a partir de um padrão com campos entre chaves.</summary>
     public static class IdentificationFormatter

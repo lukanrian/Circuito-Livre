@@ -6,10 +6,10 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Selection;
-using RafaelElectrical.Services;
+using CircuitoLivre.Selection;
+using CircuitoLivre.Services;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Diagrama unifilar de cada quadro numa vista de desenho, com disjuntores (curva e corrente), grupos de DR

@@ -1,7 +1,7 @@
-﻿<Window x:Class="RafaelElectrical.Views.DimensionWindow"
+﻿<Window x:Class="CircuitoLivre.Views.DimensionWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Dimensionar instalação (NBR 5410) — RafaelElectrical"
+        Title="Dimensionar instalação (NBR 5410) — Circuito Livre"
         Height="680" Width="1250" MinHeight="420" MinWidth="900"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel Margin="10">
@@ -78,7 +78,16 @@
                 <DataGridTextColumn Header="L (m)" Binding="{Binding LengthM, StringFormat=N1}"/>
                 <DataGridTextColumn Header="Origem L" Binding="{Binding LengthSource}"/>
                 <DataGridTextColumn Header="Agrupa" Binding="{Binding Grouping}"/>
-                <DataGridTextColumn Header="Seção (mm²)" Binding="{Binding SectionText}"/>
+                <DataGridTextColumn Header="Calculada (mm²)" Binding="{Binding CalculatedText}"/>
+                <DataGridTemplateColumn Header="Adotada (mm²)" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ComboBox ItemsSource="{Binding AdoptChoices}"
+                                      SelectedItem="{Binding AdoptSelection, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      ToolTip="Força uma seção comercial e reverifica Iz e queda; deixe em calculado para usar a seção da NBR."/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Disj. (A)" Binding="{Binding BreakerA}"/>
                 <DataGridTextColumn Header="Iz (A)" Binding="{Binding IzA, StringFormat=N1}"/>
                 <DataGridTextColumn Header="ΔV (%)" Binding="{Binding VoltageDropPercent, StringFormat=N2}"/>

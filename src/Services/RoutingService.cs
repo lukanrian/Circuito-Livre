@@ -4,7 +4,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>
     /// Roteamento de circuitos pela infraestrutura modelada (eletrodutos, eletrocalhas e conexões).

@@ -1,6 +1,6 @@
 using System;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     public static class ShortCircuitEstimate
     {

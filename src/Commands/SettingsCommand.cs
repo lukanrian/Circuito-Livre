@@ -3,13 +3,13 @@ using System.Linq;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
-    /// Abre as configurações do plugin. Ficam no computador (%AppData%\RafaelElectrical\dimensionamento.json)
+    /// Abre as configurações do plugin. Ficam no computador (%AppData%\CircuitoLivre\dimensionamento.json)
     /// ou, se o usuário marcar, dentro do projeto ativo (vão junto com o .rvt).
     /// </summary>
     [Transaction(TransactionMode.Manual)]
@@ -66,7 +66,7 @@ namespace RafaelElectrical.Commands
 
             try
             {
-                using var t = new Transaction(doc, "Configurações do RafaelElectrical");
+                using var t = new Transaction(doc, "Configurações do Circuito Livre");
                 t.Start();
                 if (window.SaveInProject)
                 {

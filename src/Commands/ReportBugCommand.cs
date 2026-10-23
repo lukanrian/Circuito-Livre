@@ -16,7 +16,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Microsoft.Win32;
-using RafaelElectrical.Services;
+using CircuitoLivre.Services;
 using Button = System.Windows.Controls.Button;
 using Color = System.Windows.Media.Color;
 using Grid = System.Windows.Controls.Grid;
@@ -24,7 +24,7 @@ using Image = System.Windows.Controls.Image;
 using RadioButton = System.Windows.Controls.RadioButton;
 using TextBox = System.Windows.Controls.TextBox;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Reportar erro / sugerir função: a pessoa preenche uma janela no próprio Revit (com print opcional, arrastado,
@@ -40,7 +40,7 @@ namespace RafaelElectrical.Commands
         /// <summary>App da Web do Apps Script (tools/apps-script/Code.gs). Vazio = só formulário.</summary>
         private const string WebAppUrl = "https://script.google.com/macros/s/AKfycbxOqn5LCZPTKhSbHzALZZoE11Xlb-fH5IbADCPf_vuJ9StOaL7N04Tafotecv-eWpXK/exec";
 
-        // Formulário público "RafaelElectrical — Reportar erro ou sugestão" (sem anexo)
+        // Formulário público "Circuito Livre — Reportar erro ou sugestão" (sem anexo)
         private const string FormBase = "https://docs.google.com/forms/d/e/1FAIpQLSdym3NpvCxjqw1r15iR3Kqn8wfr3SFHZdpN4WkrcirSUbs30g";
         private const string EntryType = "entry.1322718412";
         private const string EntryCommand = "entry.643553189";
@@ -86,7 +86,7 @@ namespace RafaelElectrical.Commands
                 }))
             {
                 TaskDialog.Show("Reportar erro", "Enviado" + (window.ImageBytes != null ? " com a imagem" : "") +
-                                                 ". Obrigado por ajudar a melhorar o RafaelElectrical!");
+                                                 ". Obrigado por ajudar a melhorar o Circuito Livre!");
                 return Result.Succeeded;
             }
 
@@ -103,7 +103,7 @@ namespace RafaelElectrical.Commands
             };
             if (TrySubmitForm(fields))
             {
-                TaskDialog.Show("Reportar erro", "Enviado (sem a imagem). Obrigado por ajudar a melhorar o RafaelElectrical!");
+                TaskDialog.Show("Reportar erro", "Enviado (sem a imagem). Obrigado por ajudar a melhorar o Circuito Livre!");
                 return Result.Succeeded;
             }
 
@@ -172,7 +172,7 @@ namespace RafaelElectrical.Commands
 
             public ReportWindow(string revit, string plugin)
             {
-                Title = "Reportar erro / sugerir função — RafaelElectrical";
+                Title = "Reportar erro / sugerir função — Circuito Livre";
                 Width = 620;
                 Height = 780;
                 Rect area = SystemParameters.WorkArea;

@@ -1,8 +1,8 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
-using RafaelElectrical.Services;
+using CircuitoLivre.Services;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     public partial class IdentifyWindow : Window
     {

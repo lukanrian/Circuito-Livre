@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
-using RafaelElectrical.Selection;
+using CircuitoLivre.Selection;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>
     /// Hierarquia de quadros do projeto: carga instalada, demanda (fatores editáveis da concessionária),

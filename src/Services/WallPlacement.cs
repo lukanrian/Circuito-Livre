@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
-using RafaelElectrical.Commands;
+using CircuitoLivre.Commands;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>
     /// Insere uma família de ponto (tomada, interruptor...) junto a uma parede, que pode estar no modelo

@@ -8,13 +8,13 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Microsoft.Win32;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Lista os parâmetros presentes nos elementos elétricos do modelo aberto (circuitos, quadros,
     /// dispositivos, luminárias, eletrodutos, fiação...) e exporta para CSV.
     /// Serve para descobrir quais parâmetros um projeto feito em outro software já traz,
-    /// para o RafaelElectrical poder ler e respeitar esses dados.
+    /// para o CircuitoLivre poder ler e respeitar esses dados.
     /// </summary>
     [Transaction(TransactionMode.ReadOnly)]
     public class ParameterInspectorCommand : IExternalCommand

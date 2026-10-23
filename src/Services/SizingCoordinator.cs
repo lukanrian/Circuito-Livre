@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     public static class SizingCoordinator
     {
@@ -41,7 +41,7 @@ namespace RafaelElectrical.Services
                 }
                 if (result == null && !selected.Contains(i) && (!i.ExistingSizingValid || !i.ExistingSectionMm2.HasValue))
                     result = Fail("Alimentador fora da seleção sem dimensionamento aprovado");
-                result ??= CircuitSizer.Size(i, s, selected.Contains(i) ? null : i.ExistingSectionMm2);
+                result ??= CircuitSizer.Size(i, s, i.AdoptedSectionMm2 ?? (selected.Contains(i) ? null : i.ExistingSectionMm2));
                 if (result.Ok && s.CheckTotalVoltageDrop && result.TotalDropPercent > s.TotalVoltageDropPercent + 1e-9)
                 { result.Ok = false; result.Status = "Queda total acima do limite"; }
                 visiting.Remove(i);

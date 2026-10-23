@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RevitAddIns>
   <AddIn Type="Application">
-    <Name>RafaelElectrical</Name>
-    <Assembly>RafaelElectrical.dll</Assembly>
+    <Name>Circuito Livre</Name>
+    <Assembly>CircuitoLivre.dll</Assembly>
     <AddInId>b1cd3190-7244-4d67-9363-32d3612206a1</AddInId>
-    <FullClassName>RafaelElectrical.App</FullClassName>
+    <FullClassName>CircuitoLivre.App</FullClassName>
     <VendorId>RAFAELMATIAS</VendorId>
     <VendorDescription>Rafael Matias</VendorDescription>
   </AddIn>

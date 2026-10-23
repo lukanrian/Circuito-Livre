@@ -5,10 +5,10 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Importar cargas: lê no modelo vinculado (ar-condicionado, bombas, aquecedores, chuveiros, motores...) os

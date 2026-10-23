@@ -1,7 +1,7 @@
-<Window x:Class="RafaelElectrical.Views.LaunchWindow"
+<Window x:Class="CircuitoLivre.Views.LaunchWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Lançar pontos — RafaelElectrical"
+        Title="Lançar pontos — Circuito Livre"
         Height="560" Width="560" MinHeight="420" MinWidth="460"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel Margin="12">

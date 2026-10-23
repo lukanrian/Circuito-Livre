@@ -3,9 +3,9 @@ using System.Diagnostics;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Services;
+using CircuitoLivre.Services;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>Versão do plugin, licença e links do projeto.</summary>
     [Transaction(TransactionMode.ReadOnly)]
@@ -15,9 +15,9 @@ namespace RafaelElectrical.Commands
 
         public Result Execute(ExternalCommandData data, ref string message, ElementSet elements)
         {
-            var dialog = new TaskDialog("Sobre o RafaelElectrical")
+            var dialog = new TaskDialog("Sobre o Circuito Livre")
             {
-                MainInstruction = $"RafaelElectrical {RevitHelpers.PluginVersion}",
+                MainInstruction = $"Circuito Livre {RevitHelpers.PluginVersion}",
                 MainContent = "Plugin elétrico gratuito e de código aberto para Revit (licença GPL-3.0), com dimensionamento pela ABNT NBR 5410.\n\n" +
                               "Versão beta: confira os resultados. A responsabilidade técnica do projeto é do profissional que o assina.",
                 CommonButtons = TaskDialogCommonButtons.Close,

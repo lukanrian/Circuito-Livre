@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     /// <summary>Item de lista com caixa de seleção.</summary>
     public class CheckItem : INotifyPropertyChanged
@@ -38,7 +38,7 @@ namespace RafaelElectrical.Views
         public ChecklistWindow(string title, string instruction, List<CheckItem> items, string okText = "OK")
         {
             InitializeComponent();
-            Title = title + " — RafaelElectrical";
+            Title = title + " — Circuito Livre";
             InstructionText.Text = instruction;
             _items = items;
             ItemList.ItemsSource = items;

@@ -5,10 +5,10 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Selection;
-using RafaelElectrical.Services;
+using CircuitoLivre.Selection;
+using CircuitoLivre.Services;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>Confere cargas sem circuito e circuitos sem caminho completo na infraestrutura.</summary>
     [Transaction(TransactionMode.ReadOnly)]

@@ -1,10 +1,10 @@
-RafaelElectrical 0.2.3-beta — 20/10/2026
+Circuito Livre 0.2.3-beta — 20/10/2026
 
 Instalação:
 O ZIP pronto não precisa do .NET SDK. O SDK é necessário apenas para compilar o código-fonte.
 1. Feche o Revit.
 2. Extraia todos os arquivos deste ZIP.
-3. Execute Instalar.ps1 no PowerShell ou copie RafaelElectrical.bundle para
+3. Execute Instalar.ps1 no PowerShell ou copie CircuitoLivre.bundle para
    %APPDATA%\Autodesk\ApplicationPlugins\
 4. Abra o Revit. Execute Dimensionar no projeto inteiro para recalcular os dados.
    Para dimensionar somente um quadro, os alimentadores externos à seleção precisam

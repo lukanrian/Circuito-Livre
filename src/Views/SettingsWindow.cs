@@ -7,12 +7,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using Microsoft.Win32;
-using RafaelElectrical.Services;
+using CircuitoLivre.Services;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     /// <summary>
-    /// Janela de configurações do RafaelElectrical (montada em código): geral, fiação, agrupamento, ocupação,
+    /// Janela de configurações do Circuito Livre (montada em código): geral, fiação, agrupamento, ocupação,
     /// dimensionamento, telecom, documentação e exportação/importação em JSON.
     /// </summary>
     public class SettingsWindow : Window
@@ -37,7 +37,7 @@ namespace RafaelElectrical.Views
         {
             _projectOption = projectOption;
             _ctx = context ?? new SettingsContext();
-            Title = $"RafaelElectrical {RevitHelpers.PluginVersion} — Configurações" +
+            Title = $"Circuito Livre {RevitHelpers.PluginVersion} — Configurações" +
                     (projectOption == true ? " (deste projeto)" : "");
             Width = 990;
             Height = 650;
@@ -89,7 +89,7 @@ namespace RafaelElectrical.Views
             var p = NewPanel();
             Group(p, "Propriedades do projeto");
             Choice(p, "Parâmetro da seção dos cabos dos circuitos:",
-                new[] { "RE_Seção (mm²)", "F.C.A", "F.C.T", "I Considerado", "Seção do Condutor Adotado (mm²)", "Queda de Tensão" },
+                new[] { "CL_Seção (mm²)", "F.C.A", "F.C.T", "I Considerado", "Seção do Condutor Adotado (mm²)", "Queda de Tensão" },
                 s => s.CircuitSectionParameter, (s, v) => s.CircuitSectionParameter = v);
             Note(p, "O dimensionamento grava a seção em RE_Seção (mm²); os demais nomes são mantidos para compatibilidade com projetos existentes.");
             Number(p, "Temperatura ambiente (°C):", s => s.TemperatureC, (s, v) => s.TemperatureC = v, 0, 80);
@@ -911,7 +911,7 @@ namespace RafaelElectrical.Views
                 DimensioningSettings temp = Settings.Clone();
                 string error = Read(temp);
                 if (error != null) { Warn(error); return; }
-                var d = new SaveFileDialog { Filter = "JSON (*.json)|*.json", FileName = "RafaelElectrical_Configuracoes.json" };
+                var d = new SaveFileDialog { Filter = "JSON (*.json)|*.json", FileName = "CircuitoLivre_Configuracoes.json" };
                 if (d.ShowDialog(this) != true) return;
                 if (temp.SaveTo(d.FileName)) MessageBox.Show(this, "Configurações exportadas.", Title);
                 else Warn("Não foi possível salvar o arquivo.");

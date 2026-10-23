@@ -1,13 +1,13 @@
-﻿# Compila o RafaelElectrical para cada Revit instalado e monta o RafaelElectrical.bundle.
-# Uso:  .\build.ps1             -> compila e gera dist\RafaelElectrical.bundle
+﻿# Compila o CircuitoLivre para cada Revit instalado e monta o CircuitoLivre.bundle.
+# Uso:  .\build.ps1             -> compila e gera dist\CircuitoLivre.bundle
 #       .\build.ps1 -Install    -> compila e instala em %APPDATA%\Autodesk\ApplicationPlugins
 param([switch]$Install)
 
 $ErrorActionPreference = 'Stop'
 $root    = $PSScriptRoot
-$proj    = Join-Path $root 'src\RafaelElectrical.csproj'
+$proj    = Join-Path $root 'src\CircuitoLivre.csproj'
 $dist    = Join-Path $root 'dist'
-$bundle  = Join-Path $dist 'RafaelElectrical.bundle'
+$bundle  = Join-Path $dist 'CircuitoLivre.bundle'
 $appId   = 'b1cd3190-7244-4d67-9363-32d3612206a1'
 $Versions = @('2025', '2026', '2027')
 
@@ -30,7 +30,7 @@ foreach ($old in @('src\obj', 'src\bin', 'build')) {
 }
 if (-not [IO.Path]::GetFullPath($bundle).StartsWith($rootFull, [StringComparison]::OrdinalIgnoreCase)) { throw "Caminho de limpeza inválido: $bundle" }
 if (Test-Path -LiteralPath $bundle) { Remove-Item -LiteralPath $bundle -Recurse -Force }
-$zip = Join-Path $dist 'RafaelElectrical.bundle.zip'
+$zip = Join-Path $dist 'CircuitoLivre.bundle.zip'
 if (-not [IO.Path]::GetFullPath($zip).StartsWith($rootFull, [StringComparison]::OrdinalIgnoreCase)) { throw "Caminho de limpeza inválido: $zip" }
 if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
 New-Item -ItemType Directory -Force $bundle | Out-Null
@@ -46,12 +46,12 @@ foreach ($v in $Versions) {
 
     $dest = Join-Path $bundle "Contents\$v"
     New-Item -ItemType Directory -Force $dest | Out-Null
-    $dll = Join-Path $outDir 'RafaelElectrical.dll'
+    $dll = Join-Path $outDir 'CircuitoLivre.dll'
     if (-not (Test-Path $dll)) {
         throw "DLL não encontrada em $outDir. Pacote 2025–2027 não foi gerado."
     }
     Copy-Item $dll $dest
-    Copy-Item (Join-Path $root 'bundle\RafaelElectrical.addin') $dest
+    Copy-Item (Join-Path $root 'bundle\CircuitoLivre.addin') $dest
     $built += $v
 }
 
@@ -62,14 +62,14 @@ $components = ($built | ForEach-Object {
 @"
   <Components Description="Revit $_">
     <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R$_" SeriesMax="R$_" />
-    <ComponentEntry AppName="RafaelElectrical" ModuleName=".\Contents\$_\RafaelElectrical.addin" />
+    <ComponentEntry AppName="CircuitoLivre" ModuleName=".\Contents\$_\CircuitoLivre.addin" />
   </Components>
 "@
 }) -join "`r`n"
 
 $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
-<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Revit" Name="RafaelElectrical" AppVersion="0.2.3" ProductType="Application" ProductCode="$appId">
+<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Revit" Name="Circuito Livre" AppVersion="0.2.3" ProductType="Application" ProductCode="$appId">
   <CompanyDetails Name="Rafael Matias" />
 $components
 </ApplicationPackage>

@@ -8,9 +8,9 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using RafaelElectrical.Selection;
+using CircuitoLivre.Selection;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Balanceamento de fases de um quadro trifásico: redistribui os circuitos monofásicos (1 polo) entre as

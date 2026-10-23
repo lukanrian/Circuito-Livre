@@ -4,7 +4,7 @@ using System.Data;
 using System.Windows;
 using System.Windows.Controls;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     /// <summary>Janela com uma tabela somente leitura, um resumo e botões de ação.</summary>
     public class TableWindow : Window
@@ -16,7 +16,7 @@ namespace RafaelElectrical.Views
 
         public TableWindow(string title, string summary, IList<string> headers, IEnumerable<IList<string>> rows, double width = 1000, double height = 620)
         {
-            Title = title + " — RafaelElectrical";
+            Title = title + " — Circuito Livre";
             Width = width;
             Height = height;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;

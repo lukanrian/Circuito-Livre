@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     public enum RenumberMode { Compact, ByName, ByLoad, ByClick, BySpaces, ByPosition }
 

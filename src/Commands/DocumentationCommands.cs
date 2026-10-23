@@ -10,11 +10,11 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using Microsoft.Win32;
-using RafaelElectrical.Selection;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Selection;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     // =====================================================================================
     //  Criar identificadores (tags)

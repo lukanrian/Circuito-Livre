@@ -9,10 +9,10 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using RafaelElectrical.Selection;
-using RafaelElectrical.Views;
+using CircuitoLivre.Selection;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Reorganiza as posições (slots) dos circuitos de um quadro de força ou de telecom pela tabela de quadro.

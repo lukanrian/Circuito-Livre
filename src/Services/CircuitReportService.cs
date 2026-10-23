@@ -7,7 +7,7 @@ using System.Text;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     public class CircuitRow
     {

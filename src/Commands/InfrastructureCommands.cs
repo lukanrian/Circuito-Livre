@@ -9,11 +9,11 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using RafaelElectrical.Selection;
-using RafaelElectrical.Services;
-using RafaelElectrical.Views;
+using CircuitoLivre.Selection;
+using CircuitoLivre.Services;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     // =====================================================================================
     //  Roteamento de circuitos (também usado por "Atualizar Quadros")
@@ -370,26 +370,19 @@ namespace RafaelElectrical.Commands
                 return Result.Cancelled;
             }
 
-            var window = new ChecklistWindow("Construir infraestrutura",
-                    "Escolha o tipo e a altura da infraestrutura; em seguida, selecione o modo de lançamento.",
-                    new List<CheckItem>(), "OK")
-                .AllowEmpty()
-                .WithCombo("Tipo:", types)
-                .WithText("Altura do trecho horizontal em relação ao nível (m):",
-                    DimensioningSettings.Load().InfraHeight(plan.GenLevel.Name).ToString("0.00", System.Globalization.CultureInfo.GetCultureInfo("pt-BR")));
+            var settings = DimensioningSettings.Load();
+            var window = new ConduitBuilderWindow(types, settings, settings.InfraHeight(plan.GenLevel.Name));
             RevitHelpers.ShowOwned(window, data);
             if (window.ShowDialog() != true) return Result.Cancelled;
+            settings.Save();
 
-            if (!double.TryParse(window.Text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double heightM))
-            {
-                TaskDialog.Show("Construir infraestrutura", "Altura inválida.");
-                return Result.Cancelled;
-            }
-            var type = (ElementType)window.ComboSelection.Tag;
-            bool tray = type is CableTrayType;
+            ElementType ceilingType = window.CeilingType, wallType = window.WallType;
+            bool wallTray = wallType is CableTrayType;   // conector de descida da família
+            double heightM = window.HeightM;
 
             var points = new List<XYZ>();
             var plugs = new List<Connector>();   // conector livre de eletroduto/eletrocalha da família (ou null)
+            var routes = new List<(List<XYZ> pts, List<Connector> plg)>();   // uma rota por ambiente (vários espaços) ou rota única
             var mode = new TaskDialog("Construir infraestrutura")
             {
                 MainInstruction = "Como deseja selecionar os pontos?",
@@ -398,6 +391,7 @@ namespace RafaelElectrical.Commands
             mode.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Sequencial — clicar na ordem do caminho");
             mode.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Proximidade automática — selecionar vários componentes");
             mode.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Espaço MEP — conectar pontos do espaço ao quadro escolhido");
+            mode.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, "Vários espaços MEP — uma rota por ambiente, a partir do quadro");
             TaskDialogResult selectedMode = mode.Show();
             if (selectedMode == TaskDialogResult.Cancel) return Result.Cancelled;
 
@@ -409,7 +403,7 @@ namespace RafaelElectrical.Commands
                     {
                         Reference r = uidoc.Selection.PickObject(ObjectType.Element, $"Clique no {points.Count + 1}º elemento do caminho (ESC termina)");
                         Element picked = doc.GetElement(r);
-                        Connector plug = FreeInfraConnector(picked, tray);
+                        Connector plug = FreeInfraConnector(picked, wallTray);
                         XYZ p = plug?.Origin ?? RevitHelpers.PointOf(picked);
                         if (p == null) continue;
                         points.Add(p);
@@ -425,8 +419,8 @@ namespace RafaelElectrical.Commands
                     IList<Reference> refs = uidoc.Selection.PickObjects(ObjectType.Element,
                         "Selecione os componentes elétricos e pressione Concluir");
                     var selected = refs.Select(r => doc.GetElement(r)).OfType<FamilyInstance>().ToList();
-                    foreach (FamilyInstance fi in selected.Where(CircuitDeviceFilter.IsPanel)) AddPoint(fi, tray, points, plugs);
-                    foreach (FamilyInstance fi in selected.Where(fi => !CircuitDeviceFilter.IsPanel(fi))) AddPoint(fi, tray, points, plugs);
+                    foreach (FamilyInstance fi in selected.Where(CircuitDeviceFilter.IsPanel)) AddPoint(fi, wallTray, points, plugs);
+                    foreach (FamilyInstance fi in selected.Where(fi => !CircuitDeviceFilter.IsPanel(fi))) AddPoint(fi, wallTray, points, plugs);
                     OrderByProximity(points, plugs);
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return Result.Cancelled; }
@@ -448,29 +442,80 @@ namespace RafaelElectrical.Commands
                 try
                 {
                     Reference r = uidoc.Selection.PickObject(ObjectType.Element, new PanelFilter(), "Selecione o quadro que alimenta o espaço");
-                    AddPoint(doc.GetElement(r), tray, points, plugs);
+                    AddPoint(doc.GetElement(r), wallTray, points, plugs);
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return Result.Cancelled; }
                 foreach (FamilyInstance fi in new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>())
                 {
-                    if (CircuitDeviceFilter.IsPanel(fi)) continue;
-                    BuiltInCategory? category = fi.Category?.BuiltInCategory;
-                    if (category != BuiltInCategory.OST_ElectricalFixtures &&
-                        category != BuiltInCategory.OST_LightingFixtures &&
-                        category != BuiltInCategory.OST_LightingDevices &&
-                        category != BuiltInCategory.OST_ElectricalEquipment) continue;
+                    if (CircuitDeviceFilter.IsPanel(fi) || !IsRoutableDevice(fi)) continue;
                     XYZ p = RevitHelpers.PointOf(fi);
-                    if (p != null && space.IsPointInSpace(p)) AddPoint(fi, tray, points, plugs);
+                    if (p != null && space.IsPointInSpace(p)) AddPoint(fi, wallTray, points, plugs);
                 }
                 OrderByProximity(points, plugs);
             }
-            if (points.Count < 2)
+            else if (selectedMode == TaskDialogResult.CommandLink4)
+            {
+                IList<Reference> spaceRefs;
+                try { spaceRefs = uidoc.Selection.PickObjects(ObjectType.Element, new SpatialPickFilter(), "Selecione os espaços MEP e pressione Concluir"); }
+                catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return Result.Cancelled; }
+                var spaces = spaceRefs.Select(r => doc.GetElement(r)).OfType<Space>().ToList();
+                if (spaces.Count == 0)
+                {
+                    TaskDialog.Show("Construir infraestrutura", "Selecione pelo menos um espaço MEP do modelo atual.");
+                    return Result.Cancelled;
+                }
+                XYZ panelPoint; Connector panelPlug;
+                try
+                {
+                    Reference r = uidoc.Selection.PickObject(ObjectType.Element, new PanelFilter(), "Selecione o quadro que alimenta os espaços");
+                    Element pnl = doc.GetElement(r);
+                    panelPlug = FreeInfraConnector(pnl, wallTray);
+                    panelPoint = panelPlug?.Origin ?? RevitHelpers.PointOf(pnl);
+                }
+                catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return Result.Cancelled; }
+                if (panelPoint == null)
+                {
+                    TaskDialog.Show("Construir infraestrutura", "O quadro escolhido não tem posição válida.");
+                    return Result.Cancelled;
+                }
+                var devices = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
+                    .Where(fi => !CircuitDeviceFilter.IsPanel(fi) && IsRoutableDevice(fi)).ToList();
+                foreach (Space space in spaces)
+                {
+                    var pts = new List<XYZ> { panelPoint };
+                    var plg = new List<Connector> { panelPlug };
+                    foreach (FamilyInstance fi in devices)
+                    {
+                        XYZ p = RevitHelpers.PointOf(fi);
+                        if (p != null && space.IsPointInSpace(p)) AddPoint(fi, wallTray, pts, plg);
+                    }
+                    OrderByProximity(pts, plg);
+                    routes.Add((pts, plg));
+                }
+            }
+
+            if (selectedMode != TaskDialogResult.CommandLink4) routes.Add((points, plugs));
+            routes.RemoveAll(r => r.pts.Count < 2);
+            if (routes.Count == 0)
             {
                 TaskDialog.Show("Construir infraestrutura", "São necessários pelo menos dois componentes com posição válida para criar uma rota.");
                 return Result.Cancelled;
             }
 
-            Level level = plan.GenLevel;
+            TaskDialog.Show("Construir infraestrutura", RunBuild(doc, plan.GenLevel, heightM, ceilingType, wallType, settings, routes));
+            return Result.Succeeded;
+        }
+
+        /// <summary>Cria a infraestrutura das rotas (transação + resumo). Reutilizado pelo comando modal e pelo painel modeless.</summary>
+        public static string RunBuild(Document doc, Level level, double heightM, ElementType ceilingType, ElementType wallType,
+            DimensioningSettings settings, List<(List<XYZ> pts, List<Connector> plg)> routes)
+        {
+            bool ceilingTray = ceilingType is CableTrayType, wallTray = wallType is CableTrayType;
+            double diameterInternal = UnitUtils.ConvertToInternalUnits(settings.ConduitBuilderDiameterMm, UnitTypeId.Millimeters);
+            string discipline = settings.ConduitDiscipline;
+            ConduitAngleLock planAngle = settings.ConduitPlanAngle, wallAngle = settings.ConduitWallAngle;
+            ConduitRunOrientation orientation = settings.ConduitOrientation;
+            bool preferCeiling = settings.ConduitPrioritizeCeiling;
             double h = level.ProjectElevation + RevitHelpers.M(heightM);
             int created = 0, fittingFail = 0, plugged = 0;
             WarningSwallower warnings;
@@ -479,46 +524,60 @@ namespace RafaelElectrical.Commands
             {
                 t.Start();
                 warnings = WarningSwallower.Attach(t);
-                MEPCurve previousHorizontal = null;
-                MEPCurve firstRiser = Segment(doc, tray, type.Id, level.Id, points[0], new XYZ(points[0].X, points[0].Y, h), ref created);
-                if (Plug(firstRiser, plugs[0])) plugged++;
 
-                for (int i = 1; i < points.Count; i++)
+                foreach ((List<XYZ> pts, List<Connector> plg) in routes)
                 {
-                    XYZ a = new XYZ(points[i - 1].X, points[i - 1].Y, h);
-                    XYZ b = new XYZ(points[i].X, points[i].Y, h);
-                    XYZ corner = new XYZ(b.X, a.Y, h);
+                    MEPCurve prevTail = null;   // último trecho da perna anterior (tê no dispositivo compartilhado)
+                    for (int i = 1; i < pts.Count; i++)
+                    {
+                        XYZ a = pts[i - 1], b = pts[i];
+                        // caminho 3D da perna: sobe/teto/desce ou direto na parede, conforme ângulos e modo de conexão
+                        var way = ConduitRouting.LegWaypoints(a.X, a.Y, a.Z, b.X, b.Y, b.Z, h,
+                            planAngle, orientation, wallAngle, preferCeiling);
 
-                    MEPCurve s1 = Segment(doc, tray, type.Id, level.Id, a, corner, ref created);
-                    MEPCurve s2 = Segment(doc, tray, type.Id, level.Id, corner, b, ref created);
-                    MEPCurve drop = Segment(doc, tray, type.Id, level.Id, b, points[i], ref created);
+                        MEPCurve first = null, last = null, prev = null;
+                        for (int k = 1; k < way.Count; k++)
+                        {
+                            // trecho na cota do teto = tipo de teto; subida/descida/diagonal = tipo de parede
+                            bool ceilingSeg = ConduitRouting.AtCeiling(way[k - 1].Z, h) && ConduitRouting.AtCeiling(way[k].Z, h);
+                            ElementType segType = ceilingSeg ? ceilingType : wallType;
+                            bool segTray = ceilingSeg ? ceilingTray : wallTray;
+                            XYZ p = new XYZ(way[k - 1].X, way[k - 1].Y, way[k - 1].Z);
+                            XYZ q = new XYZ(way[k].X, way[k].Y, way[k].Z);
+                            MEPCurve seg = Segment(doc, segTray, segType.Id, level.Id, p, q, diameterInternal, discipline, ref created);
+                            if (seg == null) continue;
+                            if (first == null) first = seg;
+                            if (prev != null) fittingFail += Connect(doc, prev, seg, p) ? 0 : 1;
+                            prev = seg; last = seg;
+                        }
+                        if (first == null) continue;
 
-                    MEPCurve first = s1 ?? s2;
-                    MEPCurve last = s2 ?? s1;
-                    if (first == null) continue;
-
-                    // início do trecho: curva com a subida do quadro ou tê com a descida anterior
-                    if (i == 1 && firstRiser != null) fittingFail += Connect(doc, firstRiser, first, a) ? 0 : 1;
-                    if (s1 != null && s2 != null) fittingFail += Connect(doc, s1, s2, corner) ? 0 : 1;
-                    if (previousHorizontal != null) fittingFail += Connect(doc, previousHorizontal, first, a) ? 0 : 1;
-
-                    // fim do trecho: descida até o dispositivo
-                    if (drop != null) fittingFail += Connect(doc, last, drop, b) ? 0 : 1;
-                    if (Plug(drop ?? last, plugs[i])) plugged++;
-                    previousHorizontal = last;
+                        // tê/curva no dispositivo compartilhado com a perna anterior
+                        if (prevTail != null) fittingFail += Connect(doc, prevTail, first, a) ? 0 : 1;
+                        // liga no conector da família: ponto inicial (só na 1ª perna) e ponto final
+                        if (i == 1 && Plug(first, plg[0])) plugged++;
+                        if (Plug(last, plg[i])) plugged++;
+                        prevTail = last;
+                    }
                 }
+                ProjectStorage.FlushSettings(doc);
                 t.Commit();
             }
 
-            TaskDialog.Show("Construir infraestrutura",
-                $"{created} trecho(s) criado(s)." +
+            return $"{created} trecho(s) criado(s)" + (routes.Count > 1 ? $" em {routes.Count} ambiente(s)." : ".") +
                 (plugged > 0 ? $"\n{plugged} ligado(s) direto no conector da família." : "") +
                 (warnings.Discarded > 0 ? $"\n{warnings.Discarded} aviso(s) do Revit descartado(s)." : "") +
-                (fittingFail > 0 ? $"\n{fittingFail} conexão(ões) não puderam ser feitas automaticamente (verifique as conexões do tipo em Preferências de roteamento)." : ""));
-            return Result.Succeeded;
+                (fittingFail > 0 ? $"\n{fittingFail} conexão(ões) não puderam ser feitas automaticamente (verifique as conexões do tipo em Preferências de roteamento)." : "");
         }
 
-        private static void AddPoint(Element element, bool tray, List<XYZ> points, List<Connector> plugs)
+        /// <summary>Categorias de dispositivo elétrico roteáveis pela infraestrutura (exclui quadros).</summary>
+        internal static bool IsRoutableDevice(FamilyInstance fi) =>
+            fi.Category?.BuiltInCategory is BuiltInCategory.OST_ElectricalFixtures
+                or BuiltInCategory.OST_LightingFixtures
+                or BuiltInCategory.OST_LightingDevices
+                or BuiltInCategory.OST_ElectricalEquipment;
+
+        internal static void AddPoint(Element element, bool tray, List<XYZ> points, List<Connector> plugs)
         {
             if (element is not FamilyInstance) return;
             Connector plug = FreeInfraConnector(element, tray);
@@ -528,7 +587,7 @@ namespace RafaelElectrical.Commands
             plugs.Add(plug);
         }
 
-        private static void OrderByProximity(List<XYZ> points, List<Connector> plugs)
+        internal static void OrderByProximity(List<XYZ> points, List<Connector> plugs)
         {
             // shortcut: greedy proximity can differ from the shortest global network; replace if route optimization is required.
             if (points.Count < 3) return;
@@ -547,13 +606,19 @@ namespace RafaelElectrical.Commands
             plugs.Clear(); plugs.AddRange(sortedPlugs);
         }
 
-        private static MEPCurve Segment(Document doc, bool tray, ElementId typeId, ElementId levelId, XYZ a, XYZ b, ref int created)
+        private static MEPCurve Segment(Document doc, bool tray, ElementId typeId, ElementId levelId, XYZ a, XYZ b,
+            double diameterInternal, string discipline, ref int created)
         {
             if (a.DistanceTo(b) < RevitHelpers.M(0.02)) return null;
             MEPCurve curve = tray
                 ? CableTray.Create(doc, typeId, a, b, levelId)
                 : Conduit.Create(doc, typeId, a, b, levelId);
             created++;
+            if (!tray && diameterInternal > 0)
+                try { curve.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM)?.Set(diameterInternal); }
+                catch { /* diâmetro fora da tabela do tipo: mantém o padrão */ }
+            if (!string.IsNullOrEmpty(discipline))
+                try { curve.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.Set(discipline); } catch { }
             return curve;
         }
 
@@ -607,7 +672,7 @@ namespace RafaelElectrical.Commands
         /// Conector livre de eletroduto (redondo) ou eletrocalha (retangular) de uma família, preferindo o vertical
         /// (caixa no forro/piso, quadro). Null se a família não tiver.
         /// </summary>
-        private static Connector FreeInfraConnector(Element e, bool tray)
+        internal static Connector FreeInfraConnector(Element e, bool tray)
         {
             ConnectorManager cm = (e as FamilyInstance)?.MEPModel?.ConnectorManager;
             if (cm == null) return null;

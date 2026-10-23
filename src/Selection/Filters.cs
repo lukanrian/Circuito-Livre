@@ -3,7 +3,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI.Selection;
 
-namespace RafaelElectrical.Selection
+namespace CircuitoLivre.Selection
 {
     /// <summary>
     /// Permite selecionar dispositivos que tenham conector elétrico livre (sem circuito) de qualquer sistema:

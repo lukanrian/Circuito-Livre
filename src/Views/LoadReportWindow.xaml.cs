@@ -7,9 +7,9 @@ using System.Windows.Input;
 using System.Windows.Markup;
 using Autodesk.Revit.DB;
 using Microsoft.Win32;
-using RafaelElectrical.Services;
+using CircuitoLivre.Services;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     public partial class LoadReportWindow : Window
     {

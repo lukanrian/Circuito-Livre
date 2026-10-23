@@ -3,17 +3,17 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>
-    /// Dados do RafaelElectrical gravados dentro do próprio projeto (.rvt), por Extensible Storage,
+    /// Dados do Circuito Livre gravados dentro do próprio projeto (.rvt), por Extensible Storage,
     /// num único DataStorage. Assim as opções vão junto com o arquivo para qualquer computador.
     /// O esquema é fixo pelo GUID: para novos dados, usar o campo "Extra" (JSON).
     /// </summary>
     public static class ProjectStorage
     {
         private static readonly Guid SchemaGuid = new Guid("4f6c2d0e-8a51-4c43-9d1f-2b7a7f5c1b01");
-        private const string SchemaName = "RafaelElectricalProjeto";
+        private const string SchemaName = "CircuitoLivreProjeto";
 
         public const string SettingsField = "Configuracoes";
         public const string AutoIdField = "IdentificacaoAutomatica";
@@ -26,7 +26,7 @@ namespace RafaelElectrical.Services
 
             var builder = new SchemaBuilder(SchemaGuid);
             builder.SetSchemaName(SchemaName);
-            builder.SetDocumentation("Configurações do plugin RafaelElectrical guardadas no projeto.");
+            builder.SetDocumentation("Configurações do plugin Circuito Livre guardadas no projeto.");
             builder.SetReadAccessLevel(AccessLevel.Public);
             builder.SetWriteAccessLevel(AccessLevel.Public);
             builder.AddSimpleField(SettingsField, typeof(string));
@@ -64,7 +64,7 @@ namespace RafaelElectrical.Services
             {
                 if (string.IsNullOrEmpty(value)) return;
                 ds = DataStorage.Create(doc);
-                try { ds.Name = "RafaelElectrical"; } catch (Exception) { /* nome é opcional */ }
+                try { ds.Name = "CircuitoLivre"; } catch (Exception) { /* nome é opcional */ }
             }
             Entity entity = ds.GetEntity(schema);
             if (!entity.IsValid()) entity = new Entity(schema);

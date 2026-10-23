@@ -1,8 +1,8 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Views;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>Ordenar circuitos na ordem em que o usuário clicar nos dispositivos.</summary>
     [Transaction(TransactionMode.Manual)]

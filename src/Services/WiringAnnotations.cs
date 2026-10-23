@@ -5,9 +5,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
-using RafaelElectrical.Selection;
+using CircuitoLivre.Selection;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>Quais circuitos aparecem nos identificadores de fiação de uma vista.</summary>
     public enum WiringVisibility { Todos, Iluminacao, IluminacaoEMisto, Forca, ForcaEMisto, Alimentador, NaoAlimentador }

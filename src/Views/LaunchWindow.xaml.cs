@@ -6,7 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     public enum LaunchCategory { Lighting, Outlet, Switch, Telecom }
 

@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     /// <summary>
     /// Formulário simples montado em código (combos, campos de texto, caixas de seleção e notas),
@@ -17,7 +17,7 @@ namespace RafaelElectrical.Views
 
         public FormWindow(string title, string instruction, double width = 480)
         {
-            Title = title + " — RafaelElectrical";
+            Title = title + " — Circuito Livre";
             Width = width;
             SizeToContent = SizeToContent.Height;
             ResizeMode = ResizeMode.NoResize;

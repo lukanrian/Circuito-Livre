@@ -4,7 +4,7 @@ using System.IO.Compression;
 using System.Security;
 using System.Text;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>
     /// Gerador mínimo de documentos Word (.docx) sem bibliotecas externas: títulos, parágrafos,

@@ -1,7 +1,7 @@
-<Window x:Class="RafaelElectrical.Views.LoadReportWindow"
+<Window x:Class="CircuitoLivre.Views.LoadReportWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Relatório de cargas — RafaelElectrical"
+        Title="Relatório de cargas — Circuito Livre"
         Height="580" Width="1150" MinHeight="300" MinWidth="700"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel Margin="10">

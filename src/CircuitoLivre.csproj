@@ -5,13 +5,13 @@
     <TargetFramework Condition="'$(RevitVersion)' == '2025' Or '$(RevitVersion)' == '2026'">net8.0-windows</TargetFramework>
     <TargetFramework Condition="'$(RevitVersion)' == '2027'">net10.0-windows</TargetFramework>
 
-    <AssemblyName>RafaelElectrical</AssemblyName>
-    <RootNamespace>RafaelElectrical</RootNamespace>
+    <AssemblyName>CircuitoLivre</AssemblyName>
+    <RootNamespace>CircuitoLivre</RootNamespace>
     <Version>0.2.3</Version>
     <InformationalVersion>0.2.3-beta</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Company>Rafael Matias</Company>
-    <Product>RafaelElectrical</Product>
+    <Product>CircuitoLivre</Product>
 
     <UseWPF>true</UseWPF>
     <PlatformTarget>x64</PlatformTarget>
@@ -42,7 +42,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\*.png" LogicalName="RafaelElectrical.Resources.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Resources\*.png" LogicalName="CircuitoLivre.Resources.%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

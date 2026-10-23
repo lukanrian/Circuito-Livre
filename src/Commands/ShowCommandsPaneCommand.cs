@@ -1,9 +1,9 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using RafaelElectrical.Views;
+using CircuitoLivre.Views;
 
-namespace RafaelElectrical.Commands
+namespace CircuitoLivre.Commands
 {
     /// <summary>Mostra o painel lateral com todos os comandos do plugin.</summary>
     [Transaction(TransactionMode.ReadOnly)]
@@ -19,7 +19,7 @@ namespace RafaelElectrical.Commands
             }
             catch (System.Exception ex)
             {
-                TaskDialog.Show("RafaelElectrical", "O painel não está disponível: " + ex.Message);
+                TaskDialog.Show("Circuito Livre", "O painel não está disponível: " + ex.Message);
                 return Result.Failed;
             }
         }

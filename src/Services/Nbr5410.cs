@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     public enum InstallMethod { A1, A2, B1, B2, C, D }
 
     public enum Insulation { PVC70, EPR90 }
+
+    public enum ConductorMaterial { Copper, Aluminum }
 
     /// <summary>Tipo de infraestrutura para o fator de agrupamento (NBR 5410, Tabela 42).</summary>
     public enum GroupingKind { Closed, SmoothTray, PerforatedTray, Ladder }
@@ -45,14 +47,51 @@ namespace RafaelElectrical.Services
             [InstallMethod.D]  = new double[,] { {14,12},{18,15},{21,17},{26,22},{34,29},{44,37},{56,46},{73,61},{95,79},{121,101},{146,122},{173,144},{213,178},{252,211},{287,240},{324,271},{363,304},{419,351},{474,396} },
         };
 
-        /// <summary>Capacidade de condução tabelada (A).</summary>
-        public static double Ampacity(InstallMethod method, Insulation insulation, double section, int loadedConductors)
+        // ============================ ALUMÍNIO ============================
+        // Condutores de ALUMÍNIO — ABNT NBR 5410:2004, Tabela 36 (PVC 70 °C) e Tabela 37 (EPR/XLPE 90 °C),
+        // blocos de alumínio, colunas (2 e 3 condutores carregados) dos métodos A1, A2, B1, B2, C e D.
+        // Seções 16–300 mm². Seção mínima do alumínio em potência = 16 mm² (NBR 5410 6.2.6.1).
+        public static readonly double[] AluminumSections = { 16, 25, 35, 50, 70, 95, 120, 150, 185, 240, 300 };
+
+        private static readonly Dictionary<InstallMethod, double[,]> AlPvc = new()
         {
+            [InstallMethod.A1] = new double[,] { {48,43},{63,57},{77,70},{93,84},{118,107},{142,129},{164,149},{189,170},{215,194},{252,227},{289,261} },
+            [InstallMethod.A2] = new double[,] { {44,41},{58,53},{71,65},{86,78},{108,98},{130,118},{150,135},{172,155},{195,176},{229,207},{263,237} },
+            [InstallMethod.B1] = new double[,] { {60,53},{79,70},{97,86},{118,104},{150,133},{181,161},{210,186},{241,214},{275,245},{324,288},{372,331} },
+            [InstallMethod.B2] = new double[,] { {54,48},{71,62},{86,77},{104,92},{131,116},{157,139},{181,160},{206,183},{234,208},{274,243},{313,278} },
+            [InstallMethod.C]  = new double[,] { {66,59},{83,73},{103,90},{125,110},{160,140},{195,170},{226,197},{261,227},{298,259},{352,305},{406,351} },
+            [InstallMethod.D]  = new double[,] { {62,52},{80,66},{96,80},{113,94},{140,117},{166,138},{189,157},{213,178},{240,200},{277,230},{313,260} },
+        };
+
+        private static readonly Dictionary<InstallMethod, double[,]> AlEpr = new()
+        {
+            [InstallMethod.A1] = new double[,] { {64,58},{84,76},{103,94},{125,113},{158,142},{191,171},{220,197},{253,226},{288,256},{338,300},{387,344} },
+            [InstallMethod.A2] = new double[,] { {60,55},{78,71},{96,87},{115,104},{145,131},{175,157},{201,180},{230,206},{262,233},{307,273},{352,313} },
+            [InstallMethod.B1] = new double[,] { {79,71},{105,93},{130,116},{157,140},{200,179},{242,217},{281,251},{323,289},{368,330},{433,389},{499,447} },
+            [InstallMethod.B2] = new double[,] { {72,64},{94,84},{115,103},{138,124},{175,156},{210,188},{242,216},{277,248},{314,281},{368,329},{421,377} },
+            [InstallMethod.C]  = new double[,] { {84,76},{101,90},{126,112},{154,136},{198,174},{241,211},{280,245},{324,283},{371,323},{439,382},{508,440} },
+            [InstallMethod.D]  = new double[,] { {73,61},{93,78},{112,94},{132,112},{163,138},{193,164},{220,186},{249,210},{279,236},{322,272},{364,308} },
+        };
+
+        /// <summary>Capacidade de condução tabelada (A). Padrão cobre; alumínio usa Tab. 36/37 (seção ≥ 16 mm²).</summary>
+        public static double Ampacity(InstallMethod method, Insulation insulation, double section, int loadedConductors,
+            ConductorMaterial material = ConductorMaterial.Copper)
+        {
+            int col = loadedConductors >= 3 ? 1 : 0;
+            if (material == ConductorMaterial.Aluminum)
+            {
+                int ai = Array.IndexOf(AluminumSections, section);
+                if (ai < 0) throw new ArgumentException($"Seção {section} mm² fora da tabela de alumínio (16–300 mm²).");
+                return (insulation == Insulation.EPR90 ? AlEpr : AlPvc)[method][ai, col];
+            }
             int i = Array.IndexOf(Sections, section);
             if (i < 0) throw new ArgumentException($"Seção {section} mm² fora da tabela.");
-            double[,] table = (insulation == Insulation.EPR90 ? Epr : Pvc)[method];
-            return table[i, loadedConductors >= 3 ? 1 : 0];
+            return (insulation == Insulation.EPR90 ? Epr : Pvc)[method][i, col];
         }
+
+        /// <summary>Seções candidatas pelo material (cobre = todas; alumínio ≥ 16 mm²).</summary>
+        public static double[] SectionsFor(ConductorMaterial material) =>
+            material == ConductorMaterial.Aluminum ? AluminumSections : Sections;
 
         /// <summary>Tabela 40 — fator de correção de temperatura (ar para A–C, solo para D).</summary>
         public static double TemperatureFactor(InstallMethod method, Insulation insulation, double temperatureC)

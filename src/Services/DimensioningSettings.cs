@@ -5,13 +5,19 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>Capacity: seção pela corrente de projeto e disjuntor até a capacidade corrigida do cabo; DesignCurrent: disjuntor ≥ Ib e cabo com Iz ≥ In.</summary>
     public enum BreakerMethod { Capacity, DesignCurrent }
 
     /// <summary>Como o condutor de proteção aparece nos identificadores de fiação.</summary>
     public enum GroundGrouping { None, OnePerRun, LightingOnly }
+
+    /// <summary>Trava de ângulo do lançamento de eletroduto (planta e prumada).</summary>
+    public enum ConduitAngleLock { Free, Deg90, Deg45 }
+
+    /// <summary>Por qual eixo o trecho horizontal começa ao fazer o "L" (planta).</summary>
+    public enum ConduitRunOrientation { Default, Horizontal, Vertical }
 
     /// <summary>Regra por tipo de circuito: curva do disjuntor e se leva neutro/terra.</summary>
     public class CircuitClassRule
@@ -45,6 +51,8 @@ namespace RafaelElectrical.Services
         public int Poles { get; set; }
         public string CableType { get; set; } = "";
         public string Insulation { get; set; } = "PVC";
+        /// <summary>Material do condutor deste tipo de circuito: "Cobre" ou "Alumínio".</summary>
+        public string Material { get; set; } = "Cobre";
         public bool Neutral { get; set; }
         public bool Ground { get; set; }
         public string Curve { get; set; } = "C";
@@ -97,7 +105,7 @@ namespace RafaelElectrical.Services
             (MatchAny ? Conditions.Any(c => c.Matches(input)) : Conditions.All(c => c.Matches(input)));
     }
 
-    /// <summary>Configurações do dimensionamento, salvas em %AppData%\RafaelElectrical\dimensionamento.json.</summary>
+    /// <summary>Configurações do dimensionamento, salvas em %AppData%\CircuitoLivre\dimensionamento.json.</summary>
     public class DimensioningSettings
     {
         [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -105,6 +113,10 @@ namespace RafaelElectrical.Services
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public Insulation Insulation { get; set; } = Insulation.PVC70;
+
+        /// <summary>Material do condutor padrão do projeto (por circuito, use a documentação).</summary>
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ConductorMaterial Material { get; set; } = ConductorMaterial.Copper;
 
         /// <summary>Temperatura ambiente (ar) ou do solo (método D), °C.</summary>
         public double TemperatureC { get; set; } = 30;
@@ -118,6 +130,9 @@ namespace RafaelElectrical.Services
         /// <summary>Resistividade do cobre (Ω·mm²/m). Padrão 1/56.</summary>
         public double Resistivity { get; set; } = 1.0 / 56.0;
 
+        /// <summary>Resistividade do alumínio (Ω·mm²/m). Padrão 1/35.</summary>
+        public double ResistivityAluminum { get; set; } = 1.0 / 35.0;
+
         public double MinSectionLighting { get; set; } = 1.5;
         public double MinSectionPower { get; set; } = 2.5;
 
@@ -130,7 +145,7 @@ namespace RafaelElectrical.Services
 
         /// <summary>Seção que não aparece nos identificadores de fiação (0 = mostrar todas).</summary>
         public double OmitSectionInTags { get; set; } = 2.5;
-        public string CircuitSectionParameter { get; set; } = "RE_Seção (mm²)";
+        public string CircuitSectionParameter { get; set; } = "CL_Seção (mm²)";
         public string InterfaceLanguage { get; set; } = "Português Brasileiro";
 
         // ---------------- Dimensionamento ----------------
@@ -309,6 +324,25 @@ namespace RafaelElectrical.Services
         /// <summary>Altura padrão da infraestrutura por nível (m acima do nível).</summary>
         public Dictionary<string, double> InfraHeightByLevel { get; set; } = new();
         public double InfraDefaultHeightM { get; set; } = 2.80;
+
+        // ---- Lançamento de eletrodutos (Construir infraestrutura) ----
+        /// <summary>Tipo de eletroduto/eletrocalha dos trechos horizontais (teto/laje); null = primeiro da lista.</summary>
+        public string ConduitCeilingTypeName { get; set; }
+        /// <summary>Tipo das subidas/descidas (parede/prumada); null = mesmo do teto.</summary>
+        public string ConduitWallTypeName { get; set; }
+        /// <summary>Diâmetro adotado no lançamento (mm); aplicado aos eletrodutos criados.</summary>
+        public double ConduitBuilderDiameterMm { get; set; } = 25;
+        /// <summary>Disciplina/serviço gravado nos trechos criados (campo Comentários).</summary>
+        public string ConduitDiscipline { get; set; } = "Elétrica";
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ConduitAngleLock ConduitPlanAngle { get; set; } = ConduitAngleLock.Deg90;
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ConduitAngleLock ConduitWallAngle { get; set; } = ConduitAngleLock.Deg90;
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ConduitRunOrientation ConduitOrientation { get; set; } = ConduitRunOrientation.Default;
+        /// <summary>True: conecta subindo ao teto; false: conecta direto pela mesma parede.</summary>
+        public bool ConduitPrioritizeCeiling { get; set; } = true;
+
         public Dictionary<string, double> FloorOffsetByLevel { get; set; } = new();
         public List<string> IgnoredInfraLevels { get; set; } = new();
 
@@ -332,6 +366,8 @@ namespace RafaelElectrical.Services
         public bool OverloadAboveNormativeTime { get; set; } = true;
         /// <summary>Condutores em paralelo: quantidade por neutro e por terra = N.C.F e metade do N.C.F.</summary>
         public bool MultipleConductorsNcf { get; set; } = false;
+        /// <summary>Máximo de condutores por fase em paralelo quando MultipleConductorsNcf está ligado.</summary>
+        public int MaxConductorsPerPhase { get; set; } = 4;
         public List<CircuitClassRule> CircuitClasses { get; set; } = new()
         {
             new CircuitClassRule { Name = "Iluminação", Keywords = "ilum;luz;lumin", Curve = "B" },
@@ -394,7 +430,7 @@ namespace RafaelElectrical.Services
         }
 
         private static string FilePath =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RafaelElectrical", "dimensionamento.json");
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CircuitoLivre", "dimensionamento.json");
 
         private static readonly JsonSerializerOptions Json = new JsonSerializerOptions { WriteIndented = true };
 
@@ -410,7 +446,7 @@ namespace RafaelElectrical.Services
         /// <summary>Configurações em uso: as do projeto ativo, se houver; senão as do computador.</summary>
         public static DimensioningSettings Load() => FromJson(ActiveProjectJson) ?? LoadComputer();
 
-        /// <summary>Configurações deste computador (%AppData%\RafaelElectrical\dimensionamento.json).</summary>
+        /// <summary>Configurações deste computador (%AppData%\CircuitoLivre\dimensionamento.json).</summary>
         public static DimensioningSettings LoadComputer() => LoadFrom(FilePath) ?? new DimensioningSettings();
 
         public static DimensioningSettings FromJson(string json)
@@ -480,6 +516,7 @@ namespace RafaelElectrical.Services
             Nbr5410.TemperatureFactor(Method, Insulation, TemperatureC);
             if (!Enum.IsDefined(BreakerMethod) || GroupedCircuits < 1 ||
                 !double.IsFinite(Resistivity) || Resistivity <= 0 ||
+                !double.IsFinite(ResistivityAluminum) || ResistivityAluminum <= 0 ||
                 !double.IsFinite(MaxVoltageDropPercent) || MaxVoltageDropPercent <= 0 ||
                 !double.IsFinite(TotalVoltageDropPercent) || TotalVoltageDropPercent <= 0 ||
                 !Nbr5410.Sections.Contains(MinSectionLighting) || !Nbr5410.Sections.Contains(MinSectionPower) ||

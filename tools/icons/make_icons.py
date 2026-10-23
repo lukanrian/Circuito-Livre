@@ -1,5 +1,5 @@
 """
-Gera os ícones da ribbon do RafaelElectrical (16 e 32 px) em src/Resources.
+Gera os ícones da ribbon do Circuito Livre (16 e 32 px) em src/Resources.
 Desenhos próprios, simples e chapados. Uso: python tools/icons/make_icons.py
 """
 import math

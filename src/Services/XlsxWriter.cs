@@ -7,7 +7,7 @@ using System.Linq;
 using System.Security;
 using System.Text;
 
-namespace RafaelElectrical.Services
+namespace CircuitoLivre.Services
 {
     /// <summary>
     /// Planilha Excel (.xlsx) mínima, sem dependências: várias abas, textos e números, primeira linha em negrito.

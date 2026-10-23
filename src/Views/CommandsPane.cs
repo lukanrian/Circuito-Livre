@@ -10,7 +10,7 @@ using Button = System.Windows.Controls.Button;
 using Image = System.Windows.Controls.Image;
 using TextBox = System.Windows.Controls.TextBox;
 
-namespace RafaelElectrical.Views
+namespace CircuitoLivre.Views
 {
     /// <summary>Um comando do plugin como aparece no painel lateral.</summary>
     public class PaneCommand
@@ -40,10 +40,10 @@ namespace RafaelElectrical.Views
                 app.PostCommand(rid);
                 return;
             }
-            TaskDialog.Show("RafaelElectrical", $"Não foi possível abrir \"{cmd.Text}\" pelo painel. Use o botão na aba RafaelElectrical.");
+            TaskDialog.Show("Circuito Livre", $"Não foi possível abrir \"{cmd.Text}\" pelo painel. Use o botão na aba Circuito Livre.");
         }
 
-        public string GetName() => "RafaelElectrical — painel de comandos";
+        public string GetName() => "Circuito Livre — painel de comandos";
     }
 
     /// <summary>Painel lateral (ancorável) com todos os comandos do plugin e uma busca.</summary>
