@@ -12,7 +12,7 @@ namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Legenda de pontos: dá um número a cada tipo de ponto (quadro, tomada, luminária, interruptor, telecom),
-    /// grava o número em RE_Legenda em todas as instâncias, monta a vista "RE - Legenda de pontos" e, se pedido,
+    /// grava o número em CL_Legenda em todas as instâncias, monta a vista "RE - Legenda de pontos" e, se pedido,
     /// coloca identificadores na vista ativa. Os números ficam guardados no projeto e não mudam entre execuções.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
@@ -47,14 +47,14 @@ namespace CircuitoLivre.Commands
 
             var form = new FormWindow(Title, Reset
                 ? "Apaga a numeração atual e numera de novo, a partir de 1, na ordem: quadros, tomadas, luminárias, interruptores, telecom."
-                : "Numera cada tipo de ponto, grava o número em RE_Legenda e monta a vista \"" + ViewName + "\". " +
+                : "Numera cada tipo de ponto, grava o número em CL_Legenda e monta a vista \"" + ViewName + "\". " +
                   "Tipos que já têm número mantêm o número; tipos novos recebem os próximos.");
             form.Group("Tipos da legenda");
             var onlyView = form.Radio("scope", "Somente os tipos que aparecem na vista ativa", graphicView);
             form.Radio("scope", "Todos os tipos usados no projeto", !graphicView);
             form.Group("Identificadores");
             var tagCombo = form.Combo("Identificador na vista ativa:", tagOptions, o => o.Label);
-            form.Note("Use um identificador multicategoria que mostre o parâmetro RE_Legenda (o número fica dentro do símbolo).");
+            form.Note("Use um identificador multicategoria que mostre o parâmetro CL_Legenda (o número fica dentro do símbolo).");
             RevitHelpers.ShowOwned(form, data);
             if (form.ShowDialog() != true) return Result.Cancelled;
 
@@ -127,7 +127,7 @@ namespace CircuitoLivre.Commands
             }
 
             TaskDialog.Show(Title,
-                $"{types.Count} tipo(s) na legenda; RE_Legenda atualizado em {written} ponto(s)." +
+                $"{types.Count} tipo(s) na legenda; CL_Legenda atualizado em {written} ponto(s)." +
                 (legend != null ? $"\nVista: \"{legend.Name}\" (no Navegador de projeto)." : "\nNão foi possível criar a vista de legenda.") +
                 (tagged > 0 ? $"\n{tagged} identificador(es) criado(s) na vista ativa." : "") +
                 (tagFail > 0 ? $"\n{tagFail} identificador(es) não puderam ser criados." : ""));

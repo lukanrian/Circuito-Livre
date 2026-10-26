@@ -295,6 +295,8 @@ namespace CircuitoLivre.Services
 
         /// <summary>Identificadores de fiação: mostrar a seção.</summary>
         public bool TagShowSection { get; set; } = true;
+        public bool TagWireSymbols { get; set; } = true;
+        public bool TagUniqueCircuitNumbers { get; set; } = true;
         /// <summary>Identificadores de fiação alinhados ao eletroduto (senão, horizontais).</summary>
         public bool TagAlongConduit { get; set; } = false;
         /// <summary>Tamanho do texto dos identificadores de fiação (mm no papel).</summary>
@@ -342,6 +344,12 @@ namespace CircuitoLivre.Services
         public ConduitRunOrientation ConduitOrientation { get; set; } = ConduitRunOrientation.Default;
         /// <summary>True: conecta subindo ao teto; false: conecta direto pela mesma parede.</summary>
         public bool ConduitPrioritizeCeiling { get; set; } = true;
+        /// <summary>Desce ao piso, percorre a elevação configurada e sobe ao próximo componente.</summary>
+        public bool ConduitThroughFloor { get; set; }
+        /// <summary>Elevação do percurso pelo piso em metros, relativa ao nível da planta.</summary>
+        public double ConduitFloorOffsetM { get; set; } = -.50;
+        [JsonIgnore]
+        public bool ConduitUsesHorizontalPlane => ConduitPrioritizeCeiling || ConduitThroughFloor;
 
         public Dictionary<string, double> FloorOffsetByLevel { get; set; } = new();
         public List<string> IgnoredInfraLevels { get; set; } = new();
@@ -405,7 +413,12 @@ namespace CircuitoLivre.Services
         public double SourceShortCircuitKa { get; set; } = 5.0;
         /// <summary>Capacidade de interrupção dos disjuntores de circuito terminal (kA).</summary>
         public double BreakerIcuKa { get; set; } = 3.0;
-        /// <summary>Faixas do padrão de entrada: demanda máxima (kVA) e a categoria/disjuntor correspondente.</summary>
+        /// <summary>
+        /// Faixas do padrão de entrada. Cada linha é "limite;descrição". O limite pode trazer um prefixo de
+        /// critério: "kW:" enquadra pela CARGA INSTALADA (kW) e "kVA:" pela DEMANDA (kVA). Sem prefixo, o limite
+        /// é demanda em kVA (compatível com as tabelas antigas). Isso permite, por exemplo, enquadrar categorias
+        /// monofásicas por carga instalada e trifásicas por demanda, como na Neoenergia Brasília.
+        /// </summary>
         public List<string> EntranceCategories { get; set; } = new()
         {
             "8;Monofásico — disjuntor 40 A",
@@ -417,14 +430,31 @@ namespace CircuitoLivre.Services
             "75;Trifásico — disjuntor 125 A",
         };
 
-        public string EntranceFor(double demandKva)
+        /// <summary>
+        /// Enquadra o padrão de entrada. Cada categoria é comparada com a grandeza do seu critério: carga
+        /// instalada (kW) quando a linha usa o prefixo "kW:", ou demanda (kVA) nos demais casos. Retorna a
+        /// descrição da primeira faixa cujo limite não é ultrapassado.
+        /// </summary>
+        public string EntranceFor(double demandKva, double installedKw)
         {
             foreach (string row in EntranceCategories)
             {
                 string[] p = row.Split(';');
-                if (p.Length >= 2 && double.TryParse(p[0].Replace(',', '.'), System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture, out double max) && demandKva <= max)
-                    return p[1].Trim();
+                if (p.Length < 2) continue;
+
+                string limitField = p[0].Trim();
+                bool byInstalledLoad = false;
+                if (limitField.StartsWith("kW:", System.StringComparison.OrdinalIgnoreCase))
+                { byInstalledLoad = true; limitField = limitField.Substring(3); }
+                else if (limitField.StartsWith("kVA:", System.StringComparison.OrdinalIgnoreCase))
+                { limitField = limitField.Substring(4); }
+
+                if (double.TryParse(limitField.Replace(',', '.'), System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out double max))
+                {
+                    double value = byInstalledLoad ? installedKw : demandKva;
+                    if (value <= max) return p[1].Trim();
+                }
             }
             return "Acima da tabela: consultar a concessionária (atendimento especial/subestação)";
         }
@@ -562,6 +592,8 @@ namespace CircuitoLivre.Services
                 !double.IsFinite(TagIgnoreTrayWidthMm) || TagIgnoreTrayWidthMm <= 0 ||
                 !double.IsFinite(TagIgnoreTrayHeightMm) || TagIgnoreTrayHeightMm <= 0)
                 throw new ArgumentException("Dimensões a ignorar nos identificadores inválidas.");
+            if (!double.IsFinite(ConduitFloorOffsetM))
+                throw new ArgumentException("Elevação do lançamento pelo piso inválida.");
             if (FloorOffsetByLevel == null || FloorOffsetByLevel.Any(kv => !double.IsFinite(kv.Value) || kv.Value < -5 || kv.Value > 5))
                 throw new ArgumentException("Cota de piso inválida.");
             if (CircuitDocumentation == null || CircuitDocumentation.Any(r => r == null || string.IsNullOrWhiteSpace(r.LoadName) ||

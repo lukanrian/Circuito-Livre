@@ -57,7 +57,7 @@ namespace CircuitoLivre.Commands
             dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Elementos que eu selecionar");
             dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Todos os dispositivos e quadros da vista");
             dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Eletrodutos e eletrocalhas da vista (fiação)",
-                "Use uma família de identificador de eletroduto que mostre o parâmetro RE_Cabos ou RE_Circuitos.");
+                "Use uma família de identificador de eletroduto que mostre o parâmetro CL_Cabos ou CL_Circuitos.");
 
             List<Element> targets;
             switch (Preset ?? dialog.Show())
@@ -258,7 +258,7 @@ namespace CircuitoLivre.Commands
 
             var dialog = new TaskDialog("Tabelas de fiação") { MainInstruction = "Agrupar a tabela por:", CommonButtons = TaskDialogCommonButtons.Cancel };
             dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Quadro");
-            dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Nível (usa RE_Nível — rode antes o Preencher Identificação)");
+            dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Nível (usa CL_Nível — rode antes o Preencher Identificação)");
             TaskDialogResult choice = dialog.Show();
             if (choice != TaskDialogResult.CommandLink1 && choice != TaskDialogResult.CommandLink2) return Result.Cancelled;
             bool byLevel = choice == TaskDialogResult.CommandLink2;

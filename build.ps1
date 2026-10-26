@@ -1,4 +1,4 @@
-﻿# Compila o CircuitoLivre para cada Revit instalado e monta o CircuitoLivre.bundle.
+﻿# Compila o CircuitoLivre para Revit 2025, 2026 e 2027 e monta o CircuitoLivre.bundle.
 # Uso:  .\build.ps1             -> compila e gera dist\CircuitoLivre.bundle
 #       .\build.ps1 -Install    -> compila e instala em %APPDATA%\Autodesk\ApplicationPlugins
 param([switch]$Install)
@@ -41,7 +41,7 @@ foreach ($v in $Versions) {
     $outDir = Join-Path $root "build\bin\$v"
     & dotnet build $proj -c Release "-p:RevitVersion=$v" -o $outDir -nologo -v:minimal
     if ($LASTEXITCODE -ne 0) {
-        throw "Falha ao compilar para Revit $v. Pacote 2025–2027 não foi gerado."
+        throw "Falha ao compilar para Revit $v. Pacote 2025-2027 nao foi gerado."
     }
 
     $dest = Join-Path $bundle "Contents\$v"
@@ -69,7 +69,7 @@ $components = ($built | ForEach-Object {
 
 $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
-<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Revit" Name="Circuito Livre" AppVersion="0.2.3" ProductType="Application" ProductCode="$appId">
+<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Revit" Name="Circuito Livre" AppVersion="0.3.15" ProductType="Application" ProductCode="$appId">
   <CompanyDetails Name="Rafael Matias" />
 $components
 </ApplicationPackage>
@@ -78,6 +78,8 @@ Set-Content -Path (Join-Path $bundle 'PackageContents.xml') -Value $xml -Encodin
 
 Copy-Item (Join-Path $root 'installer\Instalar.ps1') $dist -Force
 Copy-Item (Join-Path $root 'installer\LEIA-ME.txt') $dist -Force
+Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination (Join-Path $bundle 'LICENSE') -Force
+# Os relatorios de atualizacao (.docx) sao internos: nao entram no pacote nem no GitHub.
 Compress-Archive -Path $bundle, (Join-Path $dist 'Instalar.ps1'), (Join-Path $dist 'LEIA-ME.txt') -DestinationPath $zip
 
 Write-Host "`nBundle gerado: $bundle" -ForegroundColor Green

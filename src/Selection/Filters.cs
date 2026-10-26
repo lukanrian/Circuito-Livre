@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI.Selection;
@@ -11,9 +12,54 @@ namespace CircuitoLivre.Selection
     /// </summary>
     public class CircuitDeviceFilter : ISelectionFilter
     {
-        public bool AllowElement(Element elem) => GetFreeSystemTypes(elem).Count > 0;
+        public bool AllowElement(Element elem) => CircuitableUnits(elem).Count > 0;
 
         public bool AllowReference(Reference reference, XYZ position) => false;
+
+        /// <summary>
+        /// Instâncias com conectores livres no elemento selecionado e em seus módulos aninhados.
+        /// </summary>
+        public static List<FamilyInstance> CircuitableUnits(Element elem)
+        {
+            var result = new List<FamilyInstance>();
+            if (elem is not FamilyInstance fi) return result;
+
+            var stack = new Stack<FamilyInstance>();
+            var seen = new HashSet<ElementId>();
+            stack.Push(fi);
+            while (stack.Count > 0)
+            {
+                FamilyInstance current = stack.Pop();
+                if (!seen.Add(current.Id) || IsPanel(current)) continue;
+                if (GetFreeSystemTypes(current).Count > 0) result.Add(current);
+                foreach (ElementId id in current.GetSubComponentIds())
+                    if (current.Document.GetElement(id) is FamilyInstance sub) stack.Push(sub);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Tipos de sistema dos conectores livres do elemento e de todos os seus módulos aninhados (shared).
+        /// Usado para enquadrar famílias cujo conector está num módulo interno, não na raiz.
+        /// </summary>
+        public static HashSet<ElectricalSystemType> GetFreeSystemTypesDeep(Element elem)
+        {
+            var set = new HashSet<ElectricalSystemType>();
+            if (elem is not FamilyInstance fi) return set;
+
+            var stack = new Stack<FamilyInstance>();
+            stack.Push(fi);
+            var walked = new HashSet<ElementId>();
+            while (stack.Count > 0)
+            {
+                FamilyInstance cur = stack.Pop();
+                if (!walked.Add(cur.Id)) continue;
+                foreach (ElectricalSystemType t in GetFreeSystemTypes(cur)) set.Add(t);
+                foreach (ElementId sid in cur.GetSubComponentIds())
+                    if (cur.Document.GetElement(sid) is FamilyInstance sub) stack.Push(sub);
+            }
+            return set;
+        }
 
         /// <summary>Tipos de sistema dos conectores elétricos ainda sem circuito.</summary>
         public static HashSet<ElectricalSystemType> GetFreeSystemTypes(Element elem)
@@ -34,6 +80,11 @@ namespace CircuitoLivre.Selection
                 }
                 catch (Autodesk.Revit.Exceptions.InvalidOperationException) { }
             }
+            // UnusedConnectors não exclui associações lógicas aos circuitos elétricos.
+            var systems = fi.MEPModel.GetElectricalSystems();
+            if (systems != null)
+                set.ExceptWith(systems.Where(s => s.IsValidObject && s.Elements.Contains(fi))
+                    .Select(s => Normalize(s.SystemType)));
             return set;
         }
 

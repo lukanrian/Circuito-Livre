@@ -14,5 +14,9 @@ obj/
 # Revit (arquivos de teste e backups)
 *.rvt
 *.rfa
+!src/Resources/CL_SMB_Fiação.rfa
 *.0001.*
 *.log
+
+# Relatorios internos (nao sobem ao GitHub)
+historico/

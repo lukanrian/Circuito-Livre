@@ -8,7 +8,7 @@
 
         <GroupBox Header="Tipos e dimensão" Padding="8">
             <StackPanel>
-                <TextBlock Text="Eletroduto do teto/laje (trechos horizontais)"/>
+                <TextBlock Text="Eletroduto do teto/piso (trechos horizontais)"/>
                 <ComboBox x:Name="CeilingCombo" Margin="0,2,0,8" DisplayMemberPath="Label"/>
                 <TextBlock Text="Eletroduto da parede (subidas/descidas)"/>
                 <ComboBox x:Name="WallCombo" Margin="0,2,0,8" DisplayMemberPath="Label"/>
@@ -18,10 +18,11 @@
                         <ComboBox x:Name="DiameterCombo" Width="90" IsEditable="True"/>
                     </StackPanel>
                     <StackPanel>
-                        <TextBlock Text="Altura do trecho horizontal (m)"/>
+                        <TextBlock Text="Elevação relativa ao nível (m)"/>
                         <TextBox x:Name="HeightBox" Width="90"/>
                     </StackPanel>
                 </StackPanel>
+                <TextBlock Text="No piso, use valor negativo para passar abaixo do nível." TextWrapping="Wrap" Margin="0,4,0,0"/>
                 <TextBlock Text="Disciplina / serviço" Margin="0,8,0,0"/>
                 <TextBox x:Name="DisciplineBox"/>
             </StackPanel>
@@ -54,6 +55,7 @@
         <GroupBox Header="Modo de conexão" Padding="8" Margin="0,8,0,0">
             <StackPanel>
                 <RadioButton x:Name="ConnCeiling" Content="Priorizar teto (sobe, corre no teto e desce)" GroupName="Conn"/>
+                <RadioButton x:Name="ConnFloor" Content="Pelo piso (desce, corre no piso e sobe)" GroupName="Conn" Margin="0,4,0,0"/>
                 <RadioButton x:Name="ConnWall" Content="Mesma parede (trecho direto entre os pontos)" GroupName="Conn" Margin="0,4,0,0"/>
             </StackPanel>
         </GroupBox>

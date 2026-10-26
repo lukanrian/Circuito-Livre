@@ -7,8 +7,8 @@
 
     <AssemblyName>CircuitoLivre</AssemblyName>
     <RootNamespace>CircuitoLivre</RootNamespace>
-    <Version>0.2.3</Version>
-    <InformationalVersion>0.2.3-beta</InformationalVersion>
+    <Version>0.3.15</Version>
+    <InformationalVersion>0.3.15-beta</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Company>Rafael Matias</Company>
     <Product>CircuitoLivre</Product>
@@ -43,6 +43,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\*.png" LogicalName="CircuitoLivre.Resources.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Resources\CL_SMB_Fiação.rfa" LogicalName="CircuitoLivre.Resources.WiringAnnotation.rfa" />
   </ItemGroup>
 
 </Project>

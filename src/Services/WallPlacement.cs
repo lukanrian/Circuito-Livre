@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -92,6 +92,57 @@ namespace CircuitoLivre.Services
                 }
             }
             return best;
+        }
+
+        /// <summary>Reconhece pontos de parede nativos, de face e próximos de paredes IFC vinculadas.</summary>
+        public static bool IsWallMounted(Document doc, Element element)
+        {
+            if (element is not FamilyInstance family) return false;
+            if (family.Host is Wall) return true;
+            Reference reference = family.HostFace;
+            if (reference != null)
+            {
+                Element host = doc.GetElement(reference.ElementId);
+                if (host is RevitLinkInstance link) host = link.GetLinkDocument()?.GetElement(reference.LinkedElementId);
+                if (host?.Category?.Id == new ElementId(BuiltInCategory.OST_Walls)) return true;
+            }
+            if (family.Host != null) return false;
+            XYZ point = RevitHelpers.PointOf(family);
+            if (point == null) return false;
+            double tolerance = RevitHelpers.M(.10);
+            bool NearFace(GeometryElement geometry, XYZ local)
+            {
+                if (geometry == null) return false;
+                foreach (GeometryObject item in geometry)
+                {
+                    if (item is GeometryInstance instance && NearFace(instance.GetInstanceGeometry(), local)) return true;
+                    if (item is not Solid solid) continue;
+                    foreach (Face face in solid.Faces)
+                    {
+                        if (face is not PlanarFace plane || Math.Abs(plane.FaceNormal.Z) > 1e-6) continue;
+                        IntersectionResult projected = plane.Project(local);
+                        if (projected != null && projected.Distance <= tolerance && plane.IsInside(projected.UVPoint)) return true;
+                    }
+                }
+                return false;
+            }
+            bool Search(Document source, Transform transform)
+            {
+                XYZ local = transform.Inverse.OfPoint(point), padding = new XYZ(tolerance, tolerance, tolerance);
+                var filter = new BoundingBoxIntersectsFilter(new Outline(local - padding, local + padding));
+                foreach (Element wall in new FilteredElementCollector(source).OfCategory(BuiltInCategory.OST_Walls)
+                    .WhereElementIsNotElementType().WherePasses(filter))
+                    if (NearFace(wall.get_Geometry(new Options()), local)) return true;
+                return false;
+            }
+            // shortcut: geometria plana na categoria Paredes; ampliar quando houver um IFC reproduzível em outra categoria.
+            if (Search(doc, Transform.Identity)) return true;
+            foreach (RevitLinkInstance link in new FilteredElementCollector(doc).OfClass(typeof(RevitLinkInstance)))
+            {
+                Document linked = link.GetLinkDocument();
+                if (linked != null && Search(linked, link.GetTotalTransform())) return true;
+            }
+            return false;
         }
 
         /// <summary>Largura da porta (instância ou tipo); 0,90 m se não encontrar.</summary>

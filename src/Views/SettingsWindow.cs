@@ -91,7 +91,7 @@ namespace CircuitoLivre.Views
             Choice(p, "Parâmetro da seção dos cabos dos circuitos:",
                 new[] { "CL_Seção (mm²)", "F.C.A", "F.C.T", "I Considerado", "Seção do Condutor Adotado (mm²)", "Queda de Tensão" },
                 s => s.CircuitSectionParameter, (s, v) => s.CircuitSectionParameter = v);
-            Note(p, "O dimensionamento grava a seção em RE_Seção (mm²); os demais nomes são mantidos para compatibilidade com projetos existentes.");
+            Note(p, "O dimensionamento grava a seção em CL_Seção (mm²); os demais nomes são mantidos para compatibilidade com projetos existentes.");
             Number(p, "Temperatura ambiente (°C):", s => s.TemperatureC, (s, v) => s.TemperatureC = v, 0, 80);
             SectionCombo(p, "Seção a omitir nos identificadores de fiação:", s => s.OmitSectionInTags, (s, v) => s.OmitSectionInTags = v, allowNone: true);
             SectionCombo(p, "Seção máxima de dimensionamento (mm²):", s => s.MaxSection, (s, v) => s.MaxSection = v, allowNone: false);
@@ -109,11 +109,11 @@ namespace CircuitoLivre.Views
             Radio(p, "legend", "Numérica (1, 2, 3...)", s => !s.LegendAlphabetic, s => s.LegendAlphabetic = false);
             Radio(p, "legend", "Alfabética (A, B, C...)", s => s.LegendAlphabetic, s => s.LegendAlphabetic = true);
             Group(p, "Recursos necessários");
-            Note(p, "Os parâmetros RE_ são criados automaticamente no projeto na primeira vez que cada comando precisa deles.");
+            Note(p, "Os parâmetros CL_ são criados automaticamente no projeto na primeira vez que cada comando precisa deles.");
             p.Children.Add(new CheckBox { Content = "Carregar famílias necessárias", IsEnabled = false,
                 ToolTip = "Nenhuma família RFA é distribuída com este plugin." });
             p.Children.Add(new CheckBox { Content = "Carregar parâmetros dos cabos elétricos (opcional)", IsEnabled = false,
-                ToolTip = "Os parâmetros RE_ são criados automaticamente pelos comandos elétricos." });
+                ToolTip = "Os parâmetros CL_ são criados automaticamente pelos comandos elétricos." });
             p.Children.Add(new CheckBox { Content = "Carregar parâmetros dos cabos de telecom (opcional)", IsEnabled = false,
                 ToolTip = "Pacote de parâmetros de telecom ainda não disponível." });
             return Scroll(p);
@@ -401,6 +401,11 @@ namespace CircuitoLivre.Views
             var p = NewPanel();
             Group(p, "Identificadores de fiação");
             Check(p, "Seção do circuito nos identificadores", s => s.TagShowSection, (s, v) => s.TagShowSection = v);
+            Check(p, "Desenhar símbolos dos condutores junto ao eletroduto", s => s.TagWireSymbols, (s, v) => s.TagWireSymbols = v);
+            Note(p, "A simbologia usa uma família compatível do projeto/template. O tamanho e o desenho pertencem à família; o tamanho de texto abaixo vale para identificadores textuais.");
+            Radio(p, "tagNumbers", "Usar números de cada quadro", s => !s.TagUniqueCircuitNumbers, s => s.TagUniqueCircuitNumbers = false);
+            Radio(p, "tagNumbers", "Usar sequência única na planta", s => s.TagUniqueCircuitNumbers, s => s.TagUniqueCircuitNumbers = true);
+            Note(p, "Essa sequência vale apenas nos identificadores de fiação; não altera os circuitos e tabelas do Revit.");
             p.Children.Add(new CheckBox { Content = "Identificar luminárias por número", IsEnabled = false });
             Radio(p, "orient", "Identificadores na horizontal", s => !s.TagAlongConduit, s => s.TagAlongConduit = false);
             Radio(p, "orient", "Identificadores no eixo do eletroduto", s => s.TagAlongConduit, s => s.TagAlongConduit = true);
@@ -676,10 +681,10 @@ namespace CircuitoLivre.Views
         {
             var p = NewPanel();
             Check(p, "Registrar concessionária no projeto", s => s.RegisterUtility, (s, v) => s.RegisterUtility = v);
-            Choice(p, "Concessionária de energia:", new[] { "", "AMAZONAS ENERGIA", "CELESC", "CEMIG", "COPEL", "CPFL",
+            var utilCombo = Choice(p, "Concessionária de energia:", new[] { "", "AMAZONAS ENERGIA", "CELESC", "CEMIG", "COPEL", "CPFL",
                 "EDP", "ENEL CEARÁ", "ENERGISA", "EQUATORIAL", "LIGHT", "NEOENERGIA", "RORAIMA ENERGIA" },
                 s => s.Utility, (s, v) => s.Utility = v);
-            Choice(p, "Sistema de distribuição:", new[] { "220/127V", "230/115V", "380/220V" },
+            var supplyCombo = Choice(p, "Sistema de distribuição:", new[] { "220/127V", "230/115V", "380/220V" },
                 s => s.SupplySystem, (s, v) => s.SupplySystem = v);
             string[] entries = { "Aéreo", "Subterrâneo de cobre com isolamento em PVC", "Subterrâneo de cobre com isolamento em XLPE" };
             Choice(p, "Padrão de entrada preferido:", entries, s => s.EntranceType, (s, v) => s.EntranceType = v);
@@ -691,8 +696,24 @@ namespace CircuitoLivre.Views
                 "Criar fatores de demanda", "Criar classificação de cargas" })
                 p.Children.Add(new CheckBox { Content = title, IsEnabled = false });
             Group(p, "Categorias de atendimento (demanda máx. em kVA;descrição — uma por linha)");
-            Note(p, "Valores de exemplo: substitua pela tabela da sua concessionária.");
-            Lines(p, s => s.EntranceCategories, (s, v) => s.EntranceCategories = v);
+            TextBox catBox = null;
+            var presetCombo = new ComboBox { ItemsSource = UtilityPreset.All.Select(x => x.Name).ToList(), Width = 280 };
+            var applyBtn = new Button { Content = "Aplicar preset", Padding = new Thickness(10, 2, 10, 2), Margin = new Thickness(8, 0, 0, 0) };
+            applyBtn.Click += (_, _) =>
+            {
+                var preset = UtilityPreset.ByName(presetCombo.SelectedItem as string);
+                if (preset == null) return;
+                utilCombo.SelectedItem = "NEOENERGIA";
+                supplyCombo.SelectedItem = preset.SupplySystem;
+                catBox.Text = string.Join(Environment.NewLine, preset.EntranceCategories);
+            };
+            var presetRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+            presetRow.Children.Add(presetCombo);
+            presetRow.Children.Add(applyBtn);
+            p.Children.Add(presetRow);
+            Note(p, "Preset pronto (ex.: Neoenergia Brasília — DIS-NOR-030 REV-07). Ou edite abaixo com a tabela da sua concessionária.");
+            Note(p, "Uma faixa por linha, no formato \"limite;descrição\". Use \"kW:\" no limite para enquadrar por carga instalada (kW) e \"kVA:\" para enquadrar por demanda (kVA); sem prefixo, o limite é demanda.");
+            catBox = Lines(p, s => s.EntranceCategories, (s, v) => s.EntranceCategories = v);
             Group(p, "Fatores de demanda — iluminação e TUG (por faixa de carga, kVA)");
             Note(p, "Valores típicos de concessionárias brasileiras; confira a norma da sua concessionária.");
             GroupingRow(p, "Fator", new[] { "≤1", "≤2", "≤3", "≤4", "≤5", "≤6", "≤7", "≤8", "≤9", "≤10", ">10" },
@@ -719,7 +740,7 @@ namespace CircuitoLivre.Views
             });
         }
 
-        private void Lines(Panel p, Func<DimensioningSettings, List<string>> get, Action<DimensioningSettings, List<string>> set)
+        private TextBox Lines(Panel p, Func<DimensioningSettings, List<string>> get, Action<DimensioningSettings, List<string>> set)
         {
             var box = new TextBox { AcceptsReturn = true, Height = 130, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, TextWrapping = TextWrapping.NoWrap };
             p.Children.Add(box);
@@ -729,6 +750,7 @@ namespace CircuitoLivre.Views
                 set(s, box.Text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList());
                 return null;
             });
+            return box;
         }
 
         private void ClassesTable(Panel p)
@@ -1029,7 +1051,7 @@ namespace CircuitoLivre.Views
             _save.Add(s => { set(s, box.Text.Trim()); return null; });
         }
 
-        private void Choice(Panel p, string label, IEnumerable<string> options,
+        private ComboBox Choice(Panel p, string label, IEnumerable<string> options,
             Func<DimensioningSettings, string> get, Action<DimensioningSettings, string> set)
         {
             var values = options.ToList();
@@ -1044,6 +1066,7 @@ namespace CircuitoLivre.Views
                 combo.SelectedItem = values.Contains(selected) ? selected : values.First();
             });
             _save.Add(s => { set(s, (string)combo.SelectedItem); return null; });
+            return combo;
         }
 
         private void Check(Panel p, string label, Func<DimensioningSettings, bool> get, Action<DimensioningSettings, bool> set)

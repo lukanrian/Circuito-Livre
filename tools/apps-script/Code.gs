@@ -1,5 +1,5 @@
 /**
- * RafaelElectrical — receptor de "Reportar erro / sugerir função".
+ * Circuito Livre — receptor de "Reportar erro / sugerir função".
  * Publicado como App da Web (executa como o dono, acesso: qualquer pessoa).
  * Recebe JSON do plugin e envia um e-mail ao dono do script com o print anexado.
  * O e-mail de destino não aparece no código: é o da conta que publicou o script.
@@ -10,7 +10,7 @@ function doPost(e) {
   try {
     var d = JSON.parse(e.postData.contents);
     var tipo = clean(d.tipo, 40) || 'Erro';
-    var assunto = '[RafaelElectrical] ' + tipo + ': ' + (clean(d.comando, 80) || 'sem comando');
+    var assunto = '[Circuito Livre] ' + tipo + ': ' + (clean(d.comando, 80) || 'sem comando');
     var corpo = [
       'Tipo: ' + tipo,
       'Comando/função: ' + clean(d.comando, 200),
@@ -47,7 +47,7 @@ function doPost(e) {
 }
 
 function doGet() {
-  return out({ ok: true, servico: 'RafaelElectrical - reportar erro' });
+  return out({ ok: true, servico: 'Circuito Livre - reportar erro' });
 }
 
 function clean(v, max) {

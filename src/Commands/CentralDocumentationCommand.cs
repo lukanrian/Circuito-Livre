@@ -36,23 +36,33 @@ namespace CircuitoLivre.Commands
                 .OfType<FamilyInstance>()
                 .Where(CircuitDeviceFilter.IsPanel)
                 .ToList();
-            var circuits = new FilteredElementCollector(doc)
+            var powerCircuits = new FilteredElementCollector(doc)
                 .OfClass(typeof(ElectricalSystem)).Cast<ElectricalSystem>()
-                .Where(c => c.SystemType == ElectricalSystemType.PowerCircuit && c.BaseEquipment != null && c.Elements.Size > 0)
+                .Where(c => c.SystemType == ElectricalSystemType.PowerCircuit && c.Elements.Size > 0)
                 .ToList();
+            var circuits = powerCircuits.Where(c => c.BaseEquipment != null).ToList();
             if (panels.Count == 0 || circuits.Count == 0)
             {
                 TaskDialog.Show("Central de documentação", "Insira um quadro de distribuição e atribua a ele ao menos um circuito de força antes de gerar a documentação.");
                 return Result.Cancelled;
             }
 
-            var withoutFeeder = panels.Where(p => circuits.Any(c => c.BaseEquipment.Id == p.Id) &&
-                !RevitHelpers.CircuitsOf(p).Any(c => c.SystemType == ElectricalSystemType.PowerCircuit && c.BaseEquipment != null)).ToList();
-            if (withoutFeeder.Count > 0)
+            var panelIds = panels.Select(p => p.Id.Value).ToHashSet();
+            var supply = ProjectSizingService.AnalyzeSupply(circuits.Select(c => c.BaseEquipment.Id.Value).Where(panelIds.Contains),
+                powerCircuits.SelectMany(c => c.Elements.Cast<Element>().Where(e => panelIds.Contains(e.Id.Value))
+                    .Select(e => (c.BaseEquipment?.Id.Value, e.Id.Value))));
+            string PanelNames(IEnumerable<long> ids) => string.Join(", ", panels.Where(p => ids.Contains(p.Id.Value))
+                .Select(p => p.get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_NAME)?.AsString() ?? p.Name).OrderBy(n => n));
+            if (supply.Unassigned.Count > 0)
             {
-                TaskDialog.Show("Central de documentação", "Os quadros " +
-                    string.Join(", ", withoutFeeder.Select(p => p.Name)) +
-                    " não têm circuito alimentador atribuído. Crie o circuito a partir de cada quadro e escolha o painel de origem.");
+                TaskDialog.Show("Central de documentação", "Os quadros " + PanelNames(supply.Unassigned) +
+                    " têm circuito alimentador criado, mas sem painel de origem atribuído. Selecione o painel que alimenta esses circuitos. " +
+                    "O primeiro equipamento da instalação pode ficar sem circuito alimentador.");
+                return Result.Cancelled;
+            }
+            if (supply.Origins.Count == 0)
+            {
+                TaskDialog.Show("Central de documentação", "Não foi encontrada uma origem da instalação. Confira se há ligações de alimentação formando um ciclo entre os quadros.");
                 return Result.Cancelled;
             }
 
@@ -82,9 +92,11 @@ namespace CircuitoLivre.Commands
             }
 
             var form = new FormWindow("Central de documentação", "Escolha as etapas. Cada uma abre a própria janela, na ordem abaixo.");
-            var route = form.Check("1. Atualizar quadros: rotear os circuitos e gravar a fiação e o quantitativo nos trechos (RE_Cabos)", true);
+            form.Note("Origens da instalação: " + PanelNames(supply.Origins) +
+                ". Esses equipamentos não precisam de painel a montante. Confira se todas as origens listadas são intencionais.");
+            var route = form.Check("1. Atualizar quadros: rotear os circuitos e gravar a fiação e o quantitativo nos trechos (CL_Cabos)", true);
             var tags = form.Check("2. Criar identificadores de fiação na vista ativa (textos do plugin, com visibilidade e legenda)", true);
-            var familyTags = form.Check("2b. Usar famílias de identificador de eletroduto (RE_Cabos) em vez dos textos", false);
+            var familyTags = form.Check("2b. Usar famílias de identificador de eletroduto (CL_Cabos) em vez dos textos", false);
             var diagram = form.Check("3. Gerar o diagrama unifilar (e multifilar/DR, conforme as Configurações) dos quadros", false);
             RevitHelpers.ShowOwned(form, data);
             if (form.ShowDialog() != true) return Result.Cancelled;

@@ -12,7 +12,7 @@ namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Retornos de interruptores: clique no interruptor e nas luminárias que ele comanda; o plugin dá a próxima
-    /// letra livre do circuito (a, b, c...) e grava em RE_Retorno (e no "ID do interruptor" nativo, quando editável).
+    /// letra livre do circuito (a, b, c...) e grava em CL_Retorno (e no "ID do interruptor" nativo, quando editável).
     /// Repete até ESC. Interruptor de várias seções recebe várias letras (ex.: "a, b").
     /// </summary>
     [Transaction(TransactionMode.Manual)]
@@ -39,7 +39,7 @@ namespace CircuitoLivre.Commands
                 catch (Exception ex)
                 {
                     t.RollBack();
-                    TaskDialog.Show("Retornos", $"Não foi possível criar o parâmetro RE_Retorno:\n{ex.Message}");
+                    TaskDialog.Show("Retornos", $"Não foi possível criar o parâmetro CL_Retorno:\n{ex.Message}");
                     return Result.Failed;
                 }
                 t.Commit();
@@ -88,7 +88,7 @@ namespace CircuitoLivre.Commands
 
             if (groups > 0)
                 TaskDialog.Show("Retornos", $"{groups} retorno(s) definido(s):\n\n" + RevitHelpers.Join(log) +
-                    "\n\nUse RE_Retorno nas etiquetas das luminárias e interruptores.");
+                    "\n\nUse CL_Retorno nas etiquetas das luminárias e interruptores.");
             return Result.Succeeded;
         }
 

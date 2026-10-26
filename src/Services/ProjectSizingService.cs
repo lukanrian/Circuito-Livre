@@ -13,6 +13,15 @@ namespace CircuitoLivre.Services
     /// </summary>
     public class ProjectSizingService
     {
+        /// <summary>Sem alimentador é origem; alimentador existente sem painel é uma ligação pendente.</summary>
+        public static (List<long> Origins, List<long> Unassigned) AnalyzeSupply(IEnumerable<long> feedingPanels,
+            IEnumerable<(long? Source, long Load)> feeders)
+        {
+            var links = feeders.ToList();
+            return (feedingPanels.Distinct().Except(links.Select(e => e.Load)).ToList(),
+                links.Where(e => !e.Source.HasValue).Select(e => e.Load).Distinct().ToList());
+        }
+
         public class PanelRow
         {
             public FamilyInstance Panel;
@@ -40,6 +49,7 @@ namespace CircuitoLivre.Services
 
         public List<PanelRow> Rows { get; } = new();
         public double TotalDemandVa { get; private set; }
+        public double TotalInstalledVa { get; private set; }
         public string Entrance { get; private set; }
 
         public ProjectSizingService(Document doc, DimensioningSettings cfg)
@@ -72,7 +82,9 @@ namespace CircuitoLivre.Services
             }
 
             TotalDemandVa = Rows.Where(r => r.Depth == 0).Sum(r => r.DemandVa);
-            Entrance = _cfg.EntranceFor(TotalDemandVa / 1000.0);
+            TotalInstalledVa = Rows.Where(r => r.Depth == 0).Sum(r => r.InstalledVa);
+            // Carga instalada em kW aproximada por kVA (potência aparente), para o critério das categorias por kW.
+            Entrance = _cfg.EntranceFor(TotalDemandVa / 1000.0, TotalInstalledVa / 1000.0);
         }
 
         private static double ThreePhaseLineVoltage(FamilyInstance panel)

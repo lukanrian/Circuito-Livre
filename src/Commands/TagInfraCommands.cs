@@ -51,8 +51,16 @@ namespace CircuitoLivre.Commands
             var form = new FormWindow(Title, "Marca na vista ativa só os trechos com tamanho diferente do padrão. " +
                                              "O identificador deve mostrar o diâmetro (eletroduto) ou a largura × altura (eletrocalha).");
             DimensioningSettings cfg = DimensioningSettings.Load();
-            int Preferred(List<TagChoice> tags, string category) => cfg.TagByCategory.TryGetValue(category, out string label)
-                ? Math.Max(0, tags.FindIndex(x => x.Label == label)) : tags.Count > 1 ? 1 : 0;
+            int Preferred(List<TagChoice> tags, string category)
+            {
+                if(cfg.TagByCategory.TryGetValue(category,out string label))
+                {
+                    int chosen=tags.FindIndex(x=>x.Label==label);
+                    if(chosen>=0) return chosen;
+                }
+                var type=TagCatalog.Automatic(doc,TagCatalog.Map.First(m=>m.Label==category).Tag);
+                return type==null?0:Math.Max(0,tags.FindIndex(x=>x.Id==type));
+            }
             var conduitCombo = form.Combo("Identificador de eletroduto:", conduitTags, c => c.Label, Preferred(conduitTags, "Eletrodutos"));
             var diameter = form.Number("Diâmetro padrão (mm) — não marcar:", cfg.TagIgnoreConduitDiameterMm, 0, 500);
             form.Note("Tipos com diâmetro padrão próprio (Configurações → Conduítes) usam o valor de lá.");
@@ -115,7 +123,7 @@ namespace CircuitoLivre.Commands
 
     /// <summary>
     /// Identificadores de infra de nível: na planta ativa, trechos verticais que sobem para o nível de cima, descem
-    /// para o de baixo ou passam pelo pavimento recebem SOBE / DESCE / PASSA em RE_Passagem e um identificador (ou texto).
+    /// para o de baixo ou passam pelo pavimento recebem SOBE / DESCE / PASSA em CL_Passagem e um identificador (ou texto).
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     public class TagLevelInfraCommand : IExternalCommand
@@ -134,7 +142,7 @@ namespace CircuitoLivre.Commands
 
             List<TagChoice> tags = TagChoice.Of(doc, BuiltInCategory.OST_ConduitTags, "(usar texto: SOBE / DESCE / PASSA)");
             var form = new FormWindow(Title, "Trechos verticais de eletroduto/eletrocalha que saem deste pavimento recebem SOBE, DESCE ou PASSA " +
-                                             "no parâmetro RE_Passagem. Para usar um identificador, ele deve mostrar RE_Passagem.");
+                                             "no parâmetro CL_Passagem. Para usar um identificador, ele deve mostrar CL_Passagem.");
             var combo = form.Combo("Identificador:", tags, c => c.Label);
             RevitHelpers.ShowOwned(form, data);
             if (form.ShowDialog() != true) return Result.Cancelled;

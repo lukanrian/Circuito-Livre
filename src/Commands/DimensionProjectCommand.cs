@@ -97,7 +97,7 @@ namespace CircuitoLivre.Commands
                 }
                 if (t.Commit() != TransactionStatus.Committed) return Result.Failed;
             }
-            TaskDialog.Show(Title, "Gravado nos quadros: RE_Demanda (VA), RE_Icc (kA), RE_Verificação de curto e, no quadro geral, RE_Padrão de entrada.");
+            TaskDialog.Show(Title, "Gravado nos quadros: CL_Demanda (VA), CL_Icc (kA), CL_Verificação de curto e, no quadro geral, CL_Padrão de entrada.");
             return Result.Succeeded;
         }
     }

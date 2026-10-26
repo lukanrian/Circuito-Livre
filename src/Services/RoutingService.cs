@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
+using CircuitoLivre.Selection;
 
 namespace CircuitoLivre.Services
 {
     /// <summary>
     /// Roteamento de circuitos pela infraestrutura modelada (eletrodutos, eletrocalhas e conexões).
-    /// Monta um grafo pelos conectores, liga o quadro e cada dispositivo ao ponto de infraestrutura mais próximo
+    /// Monta um grafo pelos conectores e caixas, prioriza as ligações físicas do quadro e dos dispositivos
     /// e calcula, para cada circuito, a árvore de caminhos do quadro até os dispositivos (Dijkstra).
     /// </summary>
     public class RoutingService
@@ -83,6 +84,7 @@ namespace CircuitoLivre.Services
                 .WhereElementIsNotElementType()
                 .ToElements().ToList();
 
+            var boxes = new Dictionary<ElementId, HashSet<ElementId>>();
             foreach (Element e in infra)
             {
                 _edges[e.Id] = new List<ElementId>();
@@ -102,30 +104,76 @@ namespace CircuitoLivre.Services
                     foreach (Connector r in c.AllRefs)
                     {
                         ElementId other = r.Owner?.Id;
-                        if (other == null || other == e.Id || !_edges.ContainsKey(other)) continue;
+                        if (other == null || other == e.Id) continue;
+                        if (!_edges.ContainsKey(other))
+                        {
+                            if (r.Owner is FamilyInstance && !CircuitDeviceFilter.IsPanel(r.Owner) &&
+                                r.Domain == Domain.DomainCableTrayConduit && r.ConnectorType == ConnectorType.End)
+                            {
+                                if (!boxes.TryGetValue(other, out var ends)) boxes[other] = ends = new HashSet<ElementId>();
+                                ends.Add(e.Id);
+                            }
+                            continue;
+                        }
                         if (!_edges[e.Id].Contains(other)) _edges[e.Id].Add(other);
                         if (!_edges[other].Contains(e.Id)) _edges[other].Add(e.Id);
                     }
                 }
             }
+            foreach (var ends in boxes.Values)
+                foreach (var a in ends)
+                    foreach (var b in ends)
+                        if (a != b && !_edges[a].Contains(b)) _edges[a].Add(b);
         }
 
-        /// <summary>Elemento de infraestrutura mais próximo do ponto (e a distância, em pés).</summary>
+        private List<ElementId> ConnectedEntries(Element element)
+        {
+            for (Element e = element; e != null; e = (e as FamilyInstance)?.SuperComponent)
+            {
+                var nodes = new List<ElementId>();
+                var manager = ConnectorsOf(e);
+                if (manager == null) continue;
+                foreach (Connector c in manager.Connectors)
+                    if (c.Domain == Domain.DomainCableTrayConduit && c.ConnectorType == ConnectorType.End && c.IsConnected)
+                        foreach (Connector other in c.AllRefs)
+                            if (other.Owner != null && _edges.ContainsKey(other.Owner.Id) && !nodes.Contains(other.Owner.Id))
+                                nodes.Add(other.Owner.Id);
+                if (nodes.Count > 0) return nodes;
+            }
+            return new List<ElementId>();
+        }
+
+        /// <summary>Entrada física; na ausência de conexão, usa a infraestrutura próxima (distância em pés).</summary>
         private (ElementId Node, double Distance) Entry(Element e)
         {
+            var connected = ConnectedEntries(e);
+            if (connected.Count > 0) return (connected[0], 0);
             XYZ p = RevitHelpers.PointOf(e);
             if (p == null || _connectorPoints.Count == 0) return (null, 0);
             var best = _connectorPoints.Select(cp => (cp.Node, d: cp.Point.DistanceTo(p))).OrderBy(x => x.d).First();
             return best.d <= _maxEntryFt ? (best.Node, best.d) : (null, 0);
         }
 
-        /// <summary>Dijkstra a partir de um nó: distância e predecessor de cada nó alcançado.</summary>
-        private Dictionary<ElementId, ElementId> ShortestTree(ElementId start, Func<ElementId, double> weight = null)
+        private (ElementId Node, double Distance) ReachableEntry(Element e, Func<ElementId, bool> reachable)
         {
-            var dist = new Dictionary<ElementId, double> { [start] = 0 };
-            var prev = new Dictionary<ElementId, ElementId> { [start] = null };
+            var connected = ConnectedEntries(e);
+            if (connected.Count > 0) return (connected.FirstOrDefault(reachable), 0);
+            var entry = Entry(e);
+            return entry.Node != null && reachable(entry.Node) ? entry : (null, 0);
+        }
+
+        /// <summary>Dijkstra a partir das saídas do quadro, sem atravessar outros quadros.</summary>
+        private Dictionary<ElementId, ElementId> ShortestTree(ElementId start, Func<ElementId, double> weight = null, IEnumerable<ElementId> starts = null)
+        {
+            var dist = new Dictionary<ElementId, double>();
+            var prev = new Dictionary<ElementId, ElementId>();
             var queue = new PriorityQueue<ElementId, double>();
-            queue.Enqueue(start, 0);
+            foreach (var node in starts ?? new[] { start })
+            {
+                dist[node] = 0;
+                prev[node] = null;
+                queue.Enqueue(node, 0);
+            }
             while (queue.TryDequeue(out ElementId node, out double d))
             {
                 if (d > dist[node] + 1e-9) continue;
@@ -160,13 +208,16 @@ namespace CircuitoLivre.Services
 
                 HashSet<ElementId> stored = UseStoredRoutes ? Stored(c) : null;
                 Dictionary<ElementId, ElementId> tree = null;
-                if (stored == null && !treeCache.TryGetValue(panelNode, out tree))
-                    treeCache[panelNode] = tree = ShortestTree(panelNode);
+                if (stored == null && !treeCache.TryGetValue(panel.Id, out tree))
+                {
+                    var starts = ConnectedEntries(panel);
+                    treeCache[panel.Id] = tree = ShortestTree(panelNode, starts: starts.Count > 0 ? starts : null);
+                }
 
                 double dropsFt = panelDrop;
                 foreach (Element device in devices)
                 {
-                    var (node, drop) = Entry(device);
+                    var (node, drop) = ReachableEntry(device, stored != null ? stored.Contains : tree.ContainsKey);
                     if (node == null) continue;
                     if (stored != null)
                     {
@@ -244,13 +295,14 @@ namespace CircuitoLivre.Services
                     if (panel == null) continue;
                     var (panelNode, _) = Entry(panel);
                     if (panelNode == null) continue;
-                    Dictionary<ElementId, ElementId> tree = pass == 0
-                        ? ShortestTree(panelNode)
-                        : ShortestTree(panelNode, n => _lengthFt[n] > 0 ? 1.0 + weight * (load.TryGetValue(n, out int k) ? k : 0) : 1.0);
+                    var starts = ConnectedEntries(panel);
+                    Dictionary<ElementId, ElementId> tree = ShortestTree(panelNode,
+                        pass == 0 ? null : n => _lengthFt[n] > 0 ? 1.0 + weight * (load.TryGetValue(n, out int k) ? k : 0) : 1.0,
+                        starts.Count > 0 ? starts : null);
                     var segs = new HashSet<ElementId>();
                     foreach (Element device in c.Elements.Cast<Element>().Select(e => _doc.GetElement(e.Id)).Where(e => e != null))
                     {
-                        var (node, _) = Entry(device);
+                        var (node, _) = ReachableEntry(device, tree.ContainsKey);
                         if (node == null || !tree.ContainsKey(node)) continue;
                         for (ElementId n = node; n != null; n = tree[n]) segs.Add(n);
                     }
@@ -273,6 +325,18 @@ namespace CircuitoLivre.Services
 
         public double LengthM(HashSet<ElementId> segs) => RevitHelpers.ToM(segs.Sum(s => _lengthFt.TryGetValue(s, out double l) ? l : 0));
 
+        public HashSet<ElementId> PathBetween(Element a, Element b)
+        {
+            var result = new HashSet<ElementId>();
+            var (start, _) = Entry(a);
+            if(start==null) return result;
+            var starts=ConnectedEntries(a);
+            var tree=ShortestTree(start,starts:starts.Count>0?starts:null);
+            var (end, _) = ReachableEntry(b,tree.ContainsKey);
+            for(var node=end;node!=null;node=tree[node]) result.Add(node);
+            return result;
+        }
+
         /// <summary>Eletroduto = infraestrutura fechada; eletrocalha pelo nome do tipo (perfurada, leito/escada ou lisa).</summary>
         private GroupingKind KindOf(Element e)
         {
@@ -287,7 +351,12 @@ namespace CircuitoLivre.Services
 
         private bool IsCurve(ElementId id) => _lengthFt.TryGetValue(id, out double l) && l > 0;
 
-        public static string Label(ElectricalSystem c) =>
-            $"{(string.IsNullOrWhiteSpace(c.PanelName) ? "?" : c.PanelName)}-{c.CircuitNumber}";
+        public static string Label(ElectricalSystem c)
+        {
+            var panels = c.Elements.Cast<Element>().Where(CircuitDeviceFilter.IsPanel)
+                .Select(e => e.get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_NAME)?.AsString() ?? e.Name).ToList();
+            string description = panels.Count > 0 ? "Alimentação do " + string.Join(", ", panels) : c.LoadName;
+            return IdentificationFormatter.CircuitLabel(c.PanelName, c.CircuitNumber, description);
+        }
     }
 }

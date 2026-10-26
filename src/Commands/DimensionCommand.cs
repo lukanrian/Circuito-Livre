@@ -15,7 +15,7 @@ namespace CircuitoLivre.Commands
 {
     /// <summary>
     /// Dimensiona condutores e disjuntores dos circuitos de força pela NBR 5410
-    /// (quadros selecionados ou projeto inteiro) e grava o resultado nos parâmetros RE_ dos circuitos.
+    /// (quadros selecionados ou projeto inteiro) e grava o resultado nos parâmetros CL_ dos circuitos.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     public class DimensionCommand : IExternalCommand
@@ -138,7 +138,7 @@ namespace CircuitoLivre.Commands
             var report = new TaskDialog("Dimensionar")
             {
                 MainInstruction = $"{written} circuito(s) dimensionado(s) e gravado(s).",
-                MainContent = "Resultados nos parâmetros RE_Seção, RE_Seção PE, RE_Disjuntor, RE_Queda de tensão, RE_Fiação e RE_Dimensionamento de cada circuito." +
+                MainContent = "Resultados nos parâmetros CL_Seção, CL_Seção PE, CL_Disjuntor, CL_Queda de tensão, CL_Fiação e CL_Dimensionamento de cada circuito." +
                               (ratingFail > 0 ? $"\n\n{ratingFail} circuito(s) não aceitaram a alteração do disjuntor nativo do Revit (circuito travado ou valor fora da lista do Revit)." : ""),
             };
             report.Show();

@@ -24,6 +24,23 @@ namespace CircuitoLivre.Services
 
         public static string Label(FamilySymbol s) => $"{s.FamilyName} : {s.Name}";
 
+        public static ElementId Automatic(Document doc, BuiltInCategory tagCategory)
+        {
+            var used = new FilteredElementCollector(doc,doc.ActiveView.Id).OfClass(typeof(IndependentTag)).Cast<IndependentTag>()
+                .Where(t=>t.Category?.BuiltInCategory==tagCategory).GroupBy(t=>t.GetTypeId())
+                .OrderByDescending(g=>g.Count()).ThenBy(g=>g.Key.Value).Select(g=>g.Key).FirstOrDefault();
+            if (used!=null) return used;
+            try
+            {
+                var preferred=doc.GetDefaultFamilyTypeId(new ElementId(tagCategory));
+                if(doc.GetElement(preferred) is FamilySymbol symbol && symbol.Category?.BuiltInCategory==tagCategory) return preferred;
+            }
+            catch (System.Exception) { }
+            var loaded=new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
+                .Where(s=>s.Category?.BuiltInCategory==tagCategory).Take(2).ToList();
+            return loaded.Count==1?loaded[0].Id:null;
+        }
+
         public static string DeviceKey(Element e)
         {
             var symbol = (e as FamilyInstance)?.Symbol;
@@ -60,10 +77,10 @@ namespace CircuitoLivre.Services
                 if (m.Device != cat) continue;
                 string label = key != null && cfg.TagByDeviceType.TryGetValue(key, out string own)
                     ? own : cfg.TagByCategory.TryGetValue(m.Label, out string byCategory) ? byCategory : null;
-                if (label == null) continue;
+                if (label == null) return Automatic(doc,m.Tag);
                 return new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
                     .FirstOrDefault(s => Label(s) == label && s.Category != null &&
-                        (s.Category.BuiltInCategory == m.Tag || s.Category.BuiltInCategory == BuiltInCategory.OST_MultiCategoryTags))?.Id;
+                        (s.Category.BuiltInCategory == m.Tag || s.Category.BuiltInCategory == BuiltInCategory.OST_MultiCategoryTags))?.Id ?? Automatic(doc,m.Tag);
             }
             return null;
         }

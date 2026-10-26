@@ -67,7 +67,7 @@ namespace CircuitoLivre.Commands
                 int ga = a.Count == 0 ? gb : a.Max(s => after.Values.Count(r => r.Contains(s)));
                 return (IList<string>)new[]
                 {
-                    $"{c.PanelName}-{c.CircuitNumber}", c.LoadName ?? "",
+                    RoutingService.Label(c), c.LoadName ?? "",
                     routing.LengthM(b).ToString("0.0", br), routing.LengthM(a).ToString("0.0", br),
                     gb.ToString(), ga.ToString(), b.SetEquals(a) ? "" : "mudou",
                 };

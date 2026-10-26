@@ -154,7 +154,7 @@ namespace CircuitoLivre.Commands
                 return Result.Cancelled;
             }
 
-            var items = circuits.Select(c => new CheckItem($"{c.PanelName}-{c.CircuitNumber}  {c.LoadName}", c,
+            var items = circuits.Select(c => new CheckItem(RoutingService.Label(c), c,
                 s.Circuits == null || s.Circuits.Contains(c.Id.Value))).ToList();
             var window = new ChecklistWindow(title, "Marque os circuitos que aparecem nos identificadores de fiação desta vista.", items, "Aplicar")
                 .AllowEmpty().WithOption1("Voltar a mostrar todos (pela visibilidade pré-definida)", false);

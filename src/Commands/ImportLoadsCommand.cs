@@ -13,7 +13,7 @@ namespace CircuitoLivre.Commands
     /// <summary>
     /// Importar cargas: lê no modelo vinculado (ar-condicionado, bombas, aquecedores, chuveiros, motores...) os
     /// equipamentos que têm potência e cria, na mesma posição, um ponto de carga do modelo elétrico com essa potência.
-    /// Rodar de novo atualiza a potência dos já importados (RE_Origem) e cria só os novos.
+    /// Rodar de novo atualiza a potência dos já importados (CL_Origem) e cria só os novos.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     public class ImportLoadsCommand : IExternalCommand

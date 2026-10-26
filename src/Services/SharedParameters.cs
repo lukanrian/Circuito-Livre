@@ -140,7 +140,7 @@ namespace CircuitoLivre.Services
                 NeutralSection, TotalDrop, Section, ProtectionSection, Breaker, Current, VoltageDrop, Wiring, SizingStatus, IgnoreGrouping);
 
         public static readonly ParamDef PanelIccStatus = new("CL_Verificação de curto", "9ea9fb6b-f73a-4cdf-8abd-d8a2c58b10f5", SpecTypeId.String.Text,
-            "Indica se RE_Icc foi estimado; zero com situação não verificada não representa corrente de curto nula.", new[] { BuiltInCategory.OST_ElectricalEquipment });
+            "Indica se CL_Icc foi estimado; zero com situação não verificada não representa corrente de curto nula.", new[] { BuiltInCategory.OST_ElectricalEquipment });
 
         public static bool HasValidSizing(Element e)
         {

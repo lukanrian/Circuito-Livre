@@ -24,9 +24,12 @@ namespace CircuitoLivre
 
         public Result OnStartup(UIControlledApplication application)
         {
+            LogStartup("OnStartup inicio");
             try { application.CreateRibbonTab(TabName); }
             catch (Autodesk.Revit.Exceptions.ArgumentException) { /* aba já existe */ }
 
+            try
+            {
             // Configuração
             RibbonPanel config = Panel(application, "Configuração");
             AddButton(config, new Item("CL_Settings", "Configurações", typeof(SettingsCommand), "settings",
@@ -93,7 +96,7 @@ namespace CircuitoLivre
                 "Em sequência: atualizar quadros, identificadores de fiação na vista e diagramas (unifilar, multifilar, DR, proteção)."));
             AddSplit(model, "CL_AdjustTagsSplit", "Ajustar\nIdentificadores",
                 new Item("CL_WiringTags", "Criar Identificadores\nde Fiação", typeof(WiringTagsCommand), "adjusttags",
-                    "Cria/recria os identificadores de fiação da vista ativa (textos do plugin, com visibilidade e legenda)."),
+                    "Cria/recria números e símbolos de fase, neutro, terra e retorno na vista ativa, com visibilidade e legenda."),
                 new Item("CL_AdjustTags", "Ajustar Identificadores", typeof(AdjustWiringTagsCommand), "adjusttags",
                     "Separa os identificadores de fiação sobrepostos na vista ativa."),
                 new Item("CL_VisPreset", "Visibilidade de Identif. Pré-Definida", typeof(WiringVisibilityPresetCommand), "visibility",
@@ -114,7 +117,7 @@ namespace CircuitoLivre
                 new Item("CL_LegendAuto", "Auto Substituir por Legenda", typeof(WiringLegendAutoCommand), "legendauto",
                     "Trechos com N circuitos ou mais passam a mostrar legenda."),
                 new Item("CL_LegendCreate", "Legenda de Pontos", typeof(LegendCommand), "legend",
-                    "Numera cada tipo de ponto (RE_Legenda) e monta a vista \"RE - Legenda de pontos\"."),
+                    "Numera cada tipo de ponto (CL_Legenda) e monta a vista \"RE - Legenda de pontos\"."),
                 new Item("CL_LegendReset", "Reiniciar Legenda de Pontos", typeof(LegendResetCommand), "legendreset",
                     "Apaga a numeração da legenda de pontos e numera de novo a partir de 1."));
             AddSplit(model, "CL_PathSplit", "Caminho do\nCircuito",
@@ -214,8 +217,9 @@ namespace CircuitoLivre
                 var handler = new PostCommandHandler();
                 ExternalEvent ev = ExternalEvent.Create(handler);
                 application.RegisterDockablePane(CommandsPane.Id, "Circuito Livre", new CommandsPane(PaneCommands, ev, handler));
+                LogStartup("CommandsPane OK");
             }
-            catch (Exception) { /* painel indisponível nesta sessão */ }
+            catch (Exception ex) { LogStartup("CommandsPane FALHOU", ex); }
 
             // Painel modeless de lançamento de eletrodutos
             try
@@ -224,13 +228,17 @@ namespace CircuitoLivre
                 var conduitHandler = new ConduitBuilderHandler(pane);
                 pane.Wire(ExternalEvent.Create(conduitHandler), conduitHandler);
                 application.RegisterDockablePane(ConduitBuilderPane.Id, "Lançar eletrodutos", pane);
+                LogStartup("ConduitBuilderPane OK");
             }
-            catch (Exception) { /* painel indisponível nesta sessão */ }
+            catch (Exception ex) { LogStartup("ConduitBuilderPane FALHOU", ex); }
 
             // Dados guardados no projeto: configurações e identificação automática
             application.ViewActivated += OnViewActivated;
             try { AutoIdentificationUpdater.Register(application.ActiveAddInId); }
             catch (Exception) { /* sem identificação automática nesta sessão */ }
+            LogStartup("OnStartup fim");
+            }
+            catch (Exception ex) { LogStartup("OnStartup FALHOU", ex); }
 
             return Result.Succeeded;
         }
@@ -313,6 +321,19 @@ namespace CircuitoLivre
             image.EndInit();
             image.Freeze();
             return image;
+        }
+
+        /// <summary>Diagnóstico temporário do registro dos painéis (%AppData%\CircuitoLivre\startup.log).</summary>
+        private static void LogStartup(string msg, Exception ex = null)
+        {
+            try
+            {
+                string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CircuitoLivre");
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(Path.Combine(dir, "startup.log"),
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {msg}{(ex != null ? " :: " + ex : "")}{Environment.NewLine}");
+            }
+            catch { }
         }
     }
 }

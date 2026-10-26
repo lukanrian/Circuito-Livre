@@ -29,6 +29,7 @@ namespace CircuitoLivre.Views
         public enum Op { RefreshTypes, AddPoints, Build }
 
         private readonly ConduitBuilderPane _pane;
+        private Document _pathDocument;
         public Op Pending { get; set; }
 
         public ConduitBuilderHandler(ConduitBuilderPane pane) => _pane = pane;
@@ -57,13 +58,14 @@ namespace CircuitoLivre.Views
 
         private void AddPoints(UIDocument uidoc)
         {
-            bool wallTray = _pane.WallTypeLabel?.StartsWith("Eletrocalha") == true;
+            if (_pathDocument != uidoc.Document) _pane.ClearPath();
+            _pathDocument = uidoc.Document;
             try
             {
                 IList<Reference> refs = uidoc.Selection.PickObjects(ObjectType.Element, "Selecione os componentes e pressione Concluir");
                 foreach (Reference r in refs)
-                    BuildInfrastructureCommand.AddPoint(uidoc.Document.GetElement(r), wallTray, _pane.Points, _pane.Plugs);
-                _pane.SetStatus($"{_pane.Points.Count} ponto(s) no caminho. Clique em Construir (Ctrl+Space).");
+                    BuildInfrastructureCommand.AddPoint(uidoc.Document.GetElement(r), _pane.Devices);
+                _pane.SetStatus($"{_pane.Devices.Count} ponto(s) no caminho. Clique em Construir (Ctrl+Space).");
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException) { }
         }
@@ -72,9 +74,10 @@ namespace CircuitoLivre.Views
         {
             Document doc = uidoc.Document;
             if (doc.ActiveView is not ViewPlan plan || plan.GenLevel == null) { _pane.SetStatus("Abra uma planta para construir."); return; }
-            if (_pane.Points.Count < 2) { _pane.SetStatus("São necessários pelo menos dois pontos no caminho."); return; }
+            if (_pathDocument != doc) { _pane.SetStatus("Adicione os pontos deste projeto antes de construir."); return; }
+            if (_pane.Devices.Count < 2) { _pane.SetStatus("São necessários pelo menos dois pontos no caminho."); return; }
             ElementType ceiling = ByLabel(doc, _pane.CeilingTypeLabel), wall = ByLabel(doc, _pane.WallTypeLabel);
-            if (ceiling == null || wall == null) { _pane.SetStatus("Escolha os tipos de teto e parede (Atualizar tipos)."); return; }
+            if (ceiling == null || wall == null) { _pane.SetStatus("Escolha os tipos de teto/piso e parede (Atualizar tipos)."); return; }
             if (!_pane.TryReadDimensions(out double diameterMm, out double heightM, out string err)) { _pane.SetStatus(err); return; }
 
             DimensioningSettings s = DimensioningSettings.Load();
@@ -84,10 +87,11 @@ namespace CircuitoLivre.Views
             s.ConduitWallAngle = _pane.WallAngle;
             s.ConduitOrientation = _pane.Orientation;
             s.ConduitPrioritizeCeiling = _pane.PreferCeiling;
+            s.ConduitThroughFloor = _pane.ThroughFloor;
+            if (s.ConduitThroughFloor) s.ConduitFloorOffsetM = heightM;
             s.Save();
 
-            var routes = new List<(List<XYZ> pts, List<Connector> plg)> { (_pane.Points.ToList(), _pane.Plugs.ToList()) };
-            string summary = BuildInfrastructureCommand.RunBuild(doc, plan.GenLevel, heightM, ceiling, wall, s, routes);
+            string summary = BuildInfrastructureCommand.RunBuild(doc, plan.GenLevel, heightM, ceiling, wall, s, _pane.Devices.ToList());
             _pane.ClearPath();
             _pane.SetStatus(summary);
         }
@@ -123,26 +127,28 @@ namespace CircuitoLivre.Views
         private readonly ComboBox _wallAngle = new() { Margin = new Thickness(0, 0, 0, 6) };
         private readonly ComboBox _orientation = new() { Margin = new Thickness(0, 0, 0, 6) };
         private readonly ComboBox _connection = new() { Margin = new Thickness(0, 0, 0, 6) };
+        private string _ceilingHeightText, _floorHeightText;
+        private bool _wasFloor;
         private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0), FontWeight = FontWeights.SemiBold };
 
-        public List<XYZ> Points { get; } = new();
-        public List<Connector> Plugs { get; } = new();
+        public List<ElementId> Devices { get; } = new();
 
         public ConduitBuilderPane()
         {
             var settings = DimensioningSettings.Load();
             var root = new StackPanel { Margin = new Thickness(8), Background = Brushes.White };
 
-            root.Children.Add(Label("Eletroduto do teto/laje"));
+            root.Children.Add(Label("Eletroduto do teto/piso"));
             root.Children.Add(_ceiling);
             root.Children.Add(Label("Eletroduto da parede"));
             root.Children.Add(_wall);
-            root.Children.Add(Label("Diâmetro (mm) / Altura do teto (m)"));
+            root.Children.Add(Label("Diâmetro (mm) / Elevação relativa ao nível (m)"));
             var dim = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
             dim.Children.Add(_diameter);
             dim.Children.Add(new TextBlock { Text = "  /  ", VerticalAlignment = VerticalAlignment.Center });
             dim.Children.Add(_height);
             root.Children.Add(dim);
+            root.Children.Add(new TextBlock { Text = "Piso abaixo do nível: elevação negativa.", TextWrapping = TextWrapping.Wrap });
             root.Children.Add(Label("Disciplina / serviço"));
             root.Children.Add(_discipline);
 
@@ -156,17 +162,27 @@ namespace CircuitoLivre.Views
             Fill(_orientation, new[] { "Padrão", "Horizontal", "Vertical" });
             root.Children.Add(_orientation);
             root.Children.Add(Label("Modo de conexão"));
-            Fill(_connection, new[] { "Priorizar teto", "Mesma parede" });
+            Fill(_connection, new[] { "Priorizar teto", "Mesma parede", "Pelo piso" });
             root.Children.Add(_connection);
 
             _diameter.ItemsSource = CommonDiametersMm.Select(d => d.ToString("0.#", Br)).ToList();
             _diameter.Text = settings.ConduitBuilderDiameterMm.ToString("0.#", Br);
-            _height.Text = settings.InfraDefaultHeightM.ToString("0.00", Br);
+            _ceilingHeightText = settings.InfraDefaultHeightM.ToString("0.00", Br);
+            _floorHeightText = settings.ConduitFloorOffsetM.ToString("0.00", Br);
+            _wasFloor = settings.ConduitThroughFloor;
+            _height.Text = _wasFloor ? _floorHeightText : _ceilingHeightText;
             _discipline.Text = settings.ConduitDiscipline;
             _planAngle.SelectedIndex = settings.ConduitPlanAngle == ConduitAngleLock.Free ? 0 : settings.ConduitPlanAngle == ConduitAngleLock.Deg45 ? 2 : 1;
             _wallAngle.SelectedIndex = settings.ConduitWallAngle == ConduitAngleLock.Free ? 0 : 1;
             _orientation.SelectedIndex = settings.ConduitOrientation == ConduitRunOrientation.Horizontal ? 1 : settings.ConduitOrientation == ConduitRunOrientation.Vertical ? 2 : 0;
-            _connection.SelectedIndex = settings.ConduitPrioritizeCeiling ? 0 : 1;
+            _connection.SelectedIndex = settings.ConduitThroughFloor ? 2 : settings.ConduitPrioritizeCeiling ? 0 : 1;
+            _connection.SelectionChanged += (_, _) =>
+            {
+                if (_wasFloor) _floorHeightText = _height.Text;
+                else _ceilingHeightText = _height.Text;
+                _wasFloor = ThroughFloor;
+                _height.Text = _wasFloor ? _floorHeightText : _ceilingHeightText;
+            };
 
             var buttons = new UniformGrid { Columns = 2, Margin = new Thickness(0, 8, 0, 0) };
             buttons.Children.Add(MakeButton("Atualizar tipos", ConduitBuilderHandler.Op.RefreshTypes));
@@ -212,13 +228,14 @@ namespace CircuitoLivre.Views
         public ConduitAngleLock WallAngle => _wallAngle.SelectedIndex == 0 ? ConduitAngleLock.Free : ConduitAngleLock.Deg90;
         public ConduitRunOrientation Orientation => _orientation.SelectedIndex == 1 ? ConduitRunOrientation.Horizontal : _orientation.SelectedIndex == 2 ? ConduitRunOrientation.Vertical : ConduitRunOrientation.Default;
         public bool PreferCeiling => _connection.SelectedIndex == 0;
+        public bool ThroughFloor => _connection.SelectedIndex == 2;
 
         public bool TryReadDimensions(out double diameterMm, out double heightM, out string error)
         {
             error = null; heightM = 0;
-            if (!double.TryParse((_diameter.Text ?? "").Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out diameterMm) || diameterMm <= 0)
+            if (!double.TryParse((_diameter.Text ?? "").Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out diameterMm) || !double.IsFinite(diameterMm) || diameterMm <= 0)
             { error = "Diâmetro inválido."; return false; }
-            if (!double.TryParse((_height.Text ?? "").Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out heightM))
+            if (!double.TryParse((_height.Text ?? "").Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out heightM) || !double.IsFinite(heightM))
             { error = "Altura inválida."; return false; }
             return true;
         }
@@ -231,7 +248,7 @@ namespace CircuitoLivre.Views
             _wall.SelectedItem = labels.Contains(wal) ? wal : _ceiling.SelectedItem;
         }
 
-        public void ClearPath() { Points.Clear(); Plugs.Clear(); }
+        public void ClearPath() => Devices.Clear();
         public void SetStatus(string text) => Dispatcher.Invoke(() => _status.Text = text);
 
         public void SetupDockablePane(DockablePaneProviderData data)

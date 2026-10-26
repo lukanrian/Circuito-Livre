@@ -183,4 +183,21 @@ Check(Way3(ConduitRouting.LegWaypoints(0, 0, 0, 3, 0, 1.3, 2.8, ConduitAngleLock
     == "(0,0,0) (3,0,1.3)",
     "mesma parede livre: trecho direto (diagonal)");
 
+// Enquadramento do padrão de entrada por critério (carga instalada kW × demanda kVA).
+var legacyEntrance = new DimensioningSettings();
+Check(legacyEntrance.EntranceFor(10, 999) == "Monofásico — disjuntor 63 A",
+    "categoria sem prefixo enquadra por demanda e ignora a carga instalada");
+Check(legacyEntrance.EntranceFor(200, 200).StartsWith("Acima da tabela"),
+    "acima da última faixa retorna aviso de consulta à concessionária");
+var neo = new DimensioningSettings();
+UtilityPreset.ByName("Neoenergia Brasília (380/220 V)").ApplyTo(neo);
+Check(neo.SupplySystem == "380/220V" && neo.RegisterUtility && neo.EntranceCategories.Count == 9,
+    "preset Neoenergia Brasília aplica tensão e categorias");
+Check(neo.EntranceFor(6, 8).StartsWith("M2"), "carga instalada ≤10 kW enquadra em M2 (monofásico)");
+Check(neo.EntranceFor(9, 13).StartsWith("M3"), "carga instalada entre 10 e 15 kW enquadra em M3 (monofásico)");
+Check(neo.EntranceFor(20, 30).StartsWith("T6"), "carga acima do monofásico cai no trifásico por demanda (T6)");
+Check(neo.EntranceFor(25, 30).StartsWith("T7"), "trifásico enquadra pela demanda em kVA (T7)");
+Check(neo.EntranceFor(70, 80).StartsWith("T12"), "demanda de 70 kVA ainda cabe em T12 (≤75 kVA)");
+Check(neo.EntranceFor(80, 90).StartsWith("Acima da tabela"), "demanda acima de T12 exige consulta especial");
+
 Console.WriteLine($"{checks} verificações aprovadas.");

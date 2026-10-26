@@ -29,7 +29,7 @@ namespace CircuitoLivre.Services
     }
 
     /// <summary>
-    /// Mantém RE_Identificação (e RE_Nível) atualizados quando um circuito é criado ou alterado
+    /// Mantém CL_Identificação (e CL_Nível) atualizados quando um circuito é criado ou alterado
     /// (número, quadro, dispositivos) ou quando um quadro é renomeado. Só age nos projetos em que a opção
     /// foi ligada no comando Preencher Identificação. Registrado como opcional: o arquivo abre sem avisos
     /// em computadores sem o plugin.
@@ -130,6 +130,6 @@ namespace CircuitoLivre.Services
         public ChangePriority GetChangePriority() => ChangePriority.MEPSystems;
         public string GetUpdaterName() => "Circuito Livre — Identificação automática";
         public string GetAdditionalInformation() =>
-            "Atualiza RE_Identificação e RE_Nível dos circuitos e dispositivos quando os circuitos mudam.";
+            "Atualiza CL_Identificação e CL_Nível dos circuitos e dispositivos quando os circuitos mudam.";
     }
 }

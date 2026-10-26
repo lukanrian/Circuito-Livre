@@ -14,6 +14,8 @@ namespace CircuitoLivre.Views
     {
         private static readonly CultureInfo Br = CultureInfo.GetCultureInfo("pt-BR");
         private static readonly double[] CommonDiametersMm = { 16, 20, 25, 32, 40, 50, 60, 75, 85, 100 };
+        private string _ceilingHeightText, _floorHeightText;
+        private bool _wasFloor;
 
         public ConduitBuilderWindow(List<CheckItem> types, DimensioningSettings settings, double defaultHeightM)
         {
@@ -28,7 +30,10 @@ namespace CircuitoLivre.Views
 
             DiameterCombo.ItemsSource = CommonDiametersMm.Select(d => d.ToString("0.#", Br)).ToList();
             DiameterCombo.Text = settings.ConduitBuilderDiameterMm.ToString("0.#", Br);
-            HeightBox.Text = defaultHeightM.ToString("0.00", Br);
+            _ceilingHeightText = defaultHeightM.ToString("0.00", Br);
+            _floorHeightText = settings.ConduitFloorOffsetM.ToString("0.00", Br);
+            _wasFloor = settings.ConduitThroughFloor;
+            HeightBox.Text = _wasFloor ? _floorHeightText : _ceilingHeightText;
             DisciplineBox.Text = settings.ConduitDiscipline;
 
             (settings.ConduitPlanAngle == ConduitAngleLock.Free ? PlanFree
@@ -36,7 +41,18 @@ namespace CircuitoLivre.Views
             (settings.ConduitWallAngle == ConduitAngleLock.Free ? WallFree : Wall90).IsChecked = true;
             (settings.ConduitOrientation == ConduitRunOrientation.Horizontal ? OriHorizontal
                 : settings.ConduitOrientation == ConduitRunOrientation.Vertical ? OriVertical : OriDefault).IsChecked = true;
-            (settings.ConduitPrioritizeCeiling ? ConnCeiling : ConnWall).IsChecked = true;
+            (settings.ConduitThroughFloor ? ConnFloor : settings.ConduitPrioritizeCeiling ? ConnCeiling : ConnWall).IsChecked = true;
+            ConnCeiling.Checked += ConnectionChanged;
+            ConnFloor.Checked += ConnectionChanged;
+            ConnWall.Checked += ConnectionChanged;
+        }
+
+        private void ConnectionChanged(object sender, RoutedEventArgs e)
+        {
+            if (_wasFloor) _floorHeightText = HeightBox.Text;
+            else _ceilingHeightText = HeightBox.Text;
+            _wasFloor = ConnFloor.IsChecked == true;
+            HeightBox.Text = _wasFloor ? _floorHeightText : _ceilingHeightText;
         }
 
         public DimensioningSettings Settings { get; }
@@ -52,15 +68,15 @@ namespace CircuitoLivre.Views
         {
             if (CeilingCombo.SelectedItem is not CheckItem ceiling || WallCombo.SelectedItem is not CheckItem wall)
             {
-                MessageBox.Show(this, "Escolha os tipos de teto e de parede.", Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(this, "Escolha os tipos de teto/piso e de parede.", Title, MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            if (!double.TryParse((DiameterCombo.Text ?? "").Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double d) || d <= 0)
+            if (!double.TryParse((DiameterCombo.Text ?? "").Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double d) || !double.IsFinite(d) || d <= 0)
             {
                 MessageBox.Show(this, "Diâmetro inválido.", Title, MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            if (!double.TryParse((HeightBox.Text ?? "").Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double h))
+            if (!double.TryParse((HeightBox.Text ?? "").Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double h) || !double.IsFinite(h))
             {
                 MessageBox.Show(this, "Altura inválida.", Title, MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -81,6 +97,8 @@ namespace CircuitoLivre.Views
             Settings.ConduitOrientation = OriHorizontal.IsChecked == true ? ConduitRunOrientation.Horizontal
                 : OriVertical.IsChecked == true ? ConduitRunOrientation.Vertical : ConduitRunOrientation.Default;
             Settings.ConduitPrioritizeCeiling = ConnCeiling.IsChecked == true;
+            Settings.ConduitThroughFloor = ConnFloor.IsChecked == true;
+            if (Settings.ConduitThroughFloor) Settings.ConduitFloorOffsetM = h;
 
             DialogResult = true;
         }
